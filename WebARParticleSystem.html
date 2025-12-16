@@ -69,11 +69,90 @@
     </script>
     
     <!-- 引入 MediaPipe 库 -->
-    <script type="module">
-        // 使用ES6模块导入方式加载MediaPipe库
-        import 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
-        import 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js';
-        
+    <script>
+        // 使用传统方式加载MediaPipe库，带有多重备用方案
+        (function() {
+            // 创建加载脚本的函数
+            function loadScript(src, onLoadCallback, onErrorCallback) {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    console.log(`库加载成功: ${src}`);
+                    if (onLoadCallback) onLoadCallback();
+                };
+                script.onerror = (error) => {
+                    console.error(`库加载失败: ${src}`, error);
+                    if (onErrorCallback) onErrorCallback(error);
+                };
+                document.head.appendChild(script);
+            }
+            
+            // 多重CDN源
+            const handsSources = [
+                'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js',
+                'https://unpkg.com/@mediapipe/hands@0.4.1675469240/hands.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/mediapipe-hands/0.4.1675469240/hands.js'
+            ];
+            
+            const cameraSources = [
+                'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js',
+                'https://unpkg.com/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/mediapipe-camera-utils/0.4.1675466862/camera_utils.js'
+            ];
+            
+            let handsLoaded = false;
+            let cameraLoaded = false;
+            
+            // 加载Hands库
+            function loadHands() {
+                let index = 0;
+                
+                function tryNextSource() {
+                    if (index >= handsSources.length) {
+                        console.error('所有Hands库源都加载失败');
+                        return;
+                    }
+                    
+                    loadScript(handsSources[index], () => {
+                        handsLoaded = true;
+                        console.log('Hands库加载完成');
+                    }, () => {
+                        index++;
+                        tryNextSource();
+                    });
+                }
+                
+                tryNextSource();
+            }
+            
+            // 加载Camera库
+            function loadCamera() {
+                let index = 0;
+                
+                function tryNextSource() {
+                    if (index >= cameraSources.length) {
+                        console.error('所有Camera库源都加载失败');
+                        return;
+                    }
+                    
+                    loadScript(cameraSources[index], () => {
+                        cameraLoaded = true;
+                        console.log('Camera库加载完成');
+                    }, () => {
+                        index++;
+                        tryNextSource();
+                    });
+                }
+                
+                tryNextSource();
+            }
+            
+            // 开始加载
+            loadHands();
+            loadCamera();
+        })();
+    </script>
+    <script>
         // 确保库已加载的备用方案
         window.addEventListener('load', () => {
             console.log('库加载检查:');
@@ -395,12 +474,16 @@
                     attempts++;
                     
                     // 检查库是否已加载
-                    const handsAvailable = (typeof window.Hands !== 'undefined') || (typeof window.MediaPipeHands !== 'undefined');
-                    const cameraAvailable = (typeof window.Camera !== 'undefined') || (typeof window.MediaPipeCamera !== 'undefined');
+                    const handsAvailable = (typeof window.Hands !== 'undefined') || (typeof window.MediaPipeHands !== 'undefined') || (typeof window.HandsSolution !== 'undefined');
+                    const cameraAvailable = (typeof window.Camera !== 'undefined') || (typeof window.MediaPipeCamera !== 'undefined') || (typeof window.CameraUtils !== 'undefined');
                     
                     console.log(`检查库加载状态 (${attempts}/${maxAttempts}):`);
                     console.log('- Hands可用:', handsAvailable, '类型:', typeof window.Hands);
                     console.log('- Camera可用:', cameraAvailable, '类型:', typeof window.Camera);
+                    console.log('- MediaPipeHands:', typeof window.MediaPipeHands);
+                    console.log('- HandsSolution:', typeof window.HandsSolution);
+                    console.log('- MediaPipeCamera:', typeof window.MediaPipeCamera);
+                    console.log('- CameraUtils:', typeof window.CameraUtils);
                     
                     if (handsAvailable && cameraAvailable) {
                         console.log('MediaPipe库加载完成');
