@@ -69,9 +69,11 @@
     </script>
     
     <!-- 引入 MediaPipe 库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js"></script>
-    <script>
+    <script type="module">
+        // 使用ES6模块导入方式加载MediaPipe库
+        import 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
+        import 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js';
+        
         // 确保库已加载的备用方案
         window.addEventListener('load', () => {
             console.log('库加载检查:');
@@ -322,6 +324,9 @@
                 if (typeof window.MediaPipeHands !== 'undefined') {
                     window.Hands = window.MediaPipeHands;
                     console.log('已从MediaPipeHands重新赋值');
+                } else if (typeof window.HandsSolution !== 'undefined') {
+                    window.Hands = window.HandsSolution;
+                    console.log('已从HandsSolution重新赋值');
                 } else {
                     console.warn('无法找到有效的Hands库');
                     // 不抛出错误，继续尝试
@@ -335,6 +340,9 @@
                 if (typeof window.MediaPipeCamera !== 'undefined') {
                     window.Camera = window.MediaPipeCamera;
                     console.log('已从MediaPipeCamera重新赋值');
+                } else if (typeof window.CameraUtils !== 'undefined') {
+                    window.Camera = window.CameraUtils;
+                    console.log('已从CameraUtils重新赋值');
                 } else {
                     console.warn('无法找到有效的Camera库');
                     // 不抛出错误，继续尝试
@@ -527,6 +535,15 @@
                             
                             if ((typeof CameraConstructor === 'undefined') && (typeof window.MediaPipeCamera !== 'undefined')) {
                                 CameraConstructor = window.MediaPipeCamera;
+                            }
+                            
+                            // 检查更多备用构造函数
+                            if ((typeof HandsConstructor === 'undefined') && (typeof window.HandsSolution !== 'undefined')) {
+                                HandsConstructor = window.HandsSolution;
+                            }
+                            
+                            if ((typeof CameraConstructor === 'undefined') && (typeof window.CameraUtils !== 'undefined')) {
+                                CameraConstructor = window.CameraUtils;
                             }
                             
                             if (typeof HandsConstructor === 'undefined') {
@@ -974,8 +991,8 @@
             // 检查库是否已加载
             const checkLibraries = () => {
                 // 检查所有可能的构造函数
-                const handsAvailable = (typeof window.Hands !== 'undefined') || (typeof window.MediaPipeHands !== 'undefined');
-                const cameraAvailable = (typeof window.Camera !== 'undefined') || (typeof window.MediaPipeCamera !== 'undefined');
+                const handsAvailable = (typeof window.Hands !== 'undefined') || (typeof window.MediaPipeHands !== 'undefined') || (typeof window.HandsSolution !== 'undefined');
+                const cameraAvailable = (typeof window.Camera !== 'undefined') || (typeof window.MediaPipeCamera !== 'undefined') || (typeof window.CameraUtils !== 'undefined');
                 
                 if (handsAvailable && cameraAvailable) {
                     console.log('MediaPipe库加载完成');
