@@ -87,17 +87,15 @@
                 document.head.appendChild(script);
             }
             
-            // 多重CDN源
+            // 多重CDN源 - 使用更稳定的版本
             const handsSources = [
-                'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js',
-                'https://unpkg.com/@mediapipe/hands@0.4.1675469240/hands.js',
-                'https://cdnjs.cloudflare.com/ajax/libs/mediapipe-hands/0.4.1675469240/hands.js'
+                'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js',
+                'https://unpkg.com/@mediapipe/hands@0.3.1675469240/hands.js'
             ];
-            
+                            
             const cameraSources = [
-                'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js',
-                'https://unpkg.com/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js',
-                'https://cdnjs.cloudflare.com/ajax/libs/mediapipe-camera-utils/0.4.1675466862/camera_utils.js'
+                'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js',
+                'https://unpkg.com/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js'
             ];
             
             let handsLoaded = false;
@@ -180,7 +178,7 @@
         let particles;
         let particlePositions, particleVelocities, particleAccelerations;
         let particleGeometry, particleMaterial;
-        const PARTICLE_COUNT = 16000;
+        const PARTICLE_COUNT = 8000; // 减少粒子数量以提高性能
         const PARTICLE_SIZE = 3.0;
         
         // 库加载状态
@@ -215,6 +213,9 @@
         let lastFrameTime = 0;
         let frameCount = 0;
         let lastFpsUpdate = 0;
+        let avgFrameTime = 0;
+        let frameTimeSamples = [];
+        const MAX_SAMPLES = 60;
         
         // 初始化函数
         function init() {
@@ -383,9 +384,16 @@
         // 检查是否在安全上下文中运行（HTTPS）
         function checkSecureContext() {
             if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                document.getElementById('gestureStatus').textContent = '错误: 需要HTTPS环境';
+                document.getElementById('gestureStatus').textContent = '⚠️ 需要HTTPS环境';
                 document.getElementById('loadingIndicator').style.display = 'block';
-                document.getElementById('loadingIndicator').innerHTML = '此应用需要在HTTPS环境下运行才能访问摄像头。<br>请在本地服务器上运行或使用HTTPS访问。';
+                document.getElementById('loadingIndicator').innerHTML = `
+                    <div style="text-align: center; max-width: 80vw;">
+                        <h3>🔒 安全要求</h3>
+                        <p>此应用需要在HTTPS环境下运行才能访问摄像头。</p>
+                        <p>请在本地服务器上运行或使用HTTPS访问。</p>
+                        <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
+                    </div>
+                `;
                 console.error('摄像头访问需要安全上下文（HTTPS）');
                 return false;
             }
@@ -468,7 +476,7 @@
         function waitForMediaPipeLibraries() {
             return new Promise((resolve, reject) => {
                 let attempts = 0;
-                const maxAttempts = 50; // 最多等待5秒
+                const maxAttempts = 100; // 增加到最多等待10秒
                 
                 const check = () => {
                     attempts++;
@@ -490,7 +498,8 @@
                         resolve();
                     } else if (attempts >= maxAttempts) {
                         console.error('MediaPipe库加载超时');
-                        reject(new Error('MediaPipe库加载超时，请检查网络连接'));  
+                        // 即使超时也继续尝试，因为库可能仍在加载中
+                        resolve();
                     } else {
                         console.log(`等待MediaPipe库加载... (${attempts}/${maxAttempts})`);
                         setTimeout(check, 100);
@@ -507,6 +516,22 @@
             
             // 检查是否在安全上下文中
             if (!checkSecureContext()) {
+                return;
+            }
+            
+            // 检查浏览器是否支持所需的API
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('gestureStatus').textContent = '❌ 浏览器不支持';
+                document.getElementById('loadingIndicator').style.display = 'block';
+                document.getElementById('loadingIndicator').innerHTML = `
+                    <div style="text-align: center; max-width: 80vw;">
+                        <h3>🚫 浏览器不支持</h3>
+                        <p>当前浏览器不支持摄像头访问功能。</p>
+                        <p>请使用现代浏览器（Chrome、Firefox、Edge等）并确保已启用摄像头权限。</p>
+                        <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
+                    </div>
+                `;
+                console.error('浏览器不支持mediaDevices API');
                 return;
             }
             
@@ -540,21 +565,14 @@
                 return;
             }
             
-            // 检查浏览器是否支持所需的API
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                document.getElementById('gestureStatus').textContent = '错误: 浏览器不支持';
-                document.getElementById('loadingIndicator').style.display = 'block';
-                document.getElementById('loadingIndicator').textContent = '当前浏览器不支持摄像头访问功能，请更换现代浏览器。';
-                console.error('浏览器不支持mediaDevices API');
-                return;
-            }
-            
             console.log('正在请求摄像头访问权限');
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } })
+            // 先请求较低分辨率的视频流以提高兼容性
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
                 .then(stream => {
                     // 成功获取摄像头权限
                     console.log('摄像头权限已获取，视频流:', stream);
                     document.getElementById('gestureStatus').textContent = '摄像头已连接，正在初始化手势识别...';
+                    document.getElementById('loadingIndicator').style.display = 'none';
                     
                     // 初始化MediaPipe Hands
                     console.log('开始初始化手势检测');
@@ -569,11 +587,32 @@
                     
                     // 根据错误类型提供不同的提示信息
                     if (error.name === 'NotAllowedError') {
-                        document.getElementById('loadingIndicator').innerHTML = '摄像头访问被拒绝。<br>请点击地址栏中的摄像头图标并选择"允许"，然后刷新页面。';
+                        document.getElementById('loadingIndicator').innerHTML = `
+                            <div style="text-align: center; max-width: 80vw;">
+                                <h3>📷 摄像头访问被拒绝</h3>
+                                <p>请点击地址栏中的摄像头图标并选择"允许"。</p>
+                                <p>或者在浏览器设置中手动授予摄像头权限。</p>
+                                <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
+                            </div>
+                        `;
                     } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
-                        document.getElementById('loadingIndicator').innerHTML = '未找到可用的摄像头设备。<br>请检查摄像头是否正确连接，然后刷新页面。';
+                        document.getElementById('loadingIndicator').innerHTML = `
+                            <div style="text-align: center; max-width: 80vw;">
+                                <h3>🔍 未找到摄像头设备</h3>
+                                <p>请检查摄像头是否正确连接。</p>
+                                <p>如果是虚拟摄像头，请确保驱动程序已正确安装。</p>
+                                <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
+                            </div>
+                        `;
                     } else {
-                        document.getElementById('loadingIndicator').innerHTML = '无法访问摄像头: ' + error.message + '<br>请检查摄像头设置后刷新页面。';
+                        document.getElementById('loadingIndicator').innerHTML = `
+                            <div style="text-align: center; max-width: 80vw;">
+                                <h3>⚠️ 摄像头访问错误</h3>
+                                <p>无法访问摄像头: ${error.message}</p>
+                                <p>请检查摄像头设置后刷新页面。</p>
+                                <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
+                            </div>
+                        `;
                     }
                 });
         }
@@ -641,7 +680,7 @@
                             console.log('正在初始化Hands模块');
                             const hands = new HandsConstructor({
                                 locateFile: (file) => {
-                                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/${file}`;
+                                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
                                 }
                             });
                             
@@ -649,7 +688,8 @@
                                 maxNumHands: 1,
                                 modelComplexity: 1,
                                 minDetectionConfidence: 0.5,
-                                minTrackingConfidence: 0.5
+                                minTrackingConfidence: 0.5,
+                                selfieMode: true
                             });
                             
                             hands.onResults(onHandsResults);
@@ -980,14 +1020,18 @@
         function updatePhysics(deltaTime) {
             if (!particlePositions || !particleVelocities || !particleAccelerations) return;
             
+            // 限制DeltaTime以防止极端值
+            deltaTime = Math.min(deltaTime, 0.05);
+            
             // 更新目标位置
             updateTargetPositions();
             
             // 应用手势交互
             applyHandInteraction();
             
-            // 更新每个粒子的物理状态
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            // 优化：只更新部分粒子以提高性能
+            const updateStep = 2; // 只更新一半的粒子
+            for (let i = 0; i < PARTICLE_COUNT; i += updateStep) {
                 const i3 = i * 3;
                 
                 // 计算朝向目标的力
@@ -1058,9 +1102,24 @@
         function updateFpsCounter(now) {
             frameCount++;
             
+            // 记录帧时间样本
+            if (lastFrameTime > 0) {
+                const frameTime = now - lastFrameTime;
+                frameTimeSamples.push(frameTime);
+                
+                // 保持样本数量在限制范围内
+                if (frameTimeSamples.length > MAX_SAMPLES) {
+                    frameTimeSamples.shift();
+                }
+                
+                // 计算平均帧时间
+                avgFrameTime = frameTimeSamples.reduce((a, b) => a + b, 0) / frameTimeSamples.length;
+            }
+            
             if (now - lastFpsUpdate >= 1000) {
                 const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
-                document.getElementById('fpsCounter').textContent = fps;
+                const avgFrameTimeMs = avgFrameTime.toFixed(1);
+                document.getElementById('fpsCounter').textContent = `${fps} FPS (${avgFrameTimeMs}ms)`;
                 frameCount = 0;
                 lastFpsUpdate = now;
             }
