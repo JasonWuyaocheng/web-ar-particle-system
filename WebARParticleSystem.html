@@ -125,8 +125,7 @@
         let gestureTransitionTime = 0;
         let gestureTransitionDuration = 0.5;
         
-        // 初始化当前形状索引
-        currentShapeIndex = shapes.indexOf(currentGesture);
+        // 初始化当前形状索引（稍后在shapes变量声明后再初始化）
         
         // 物理参数
         const baseVelocityFactor = 0.05;
@@ -159,6 +158,9 @@
         const AUTO_SHAPE_INTERVAL = 5000; // 5秒切换一次
         const shapes = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
         let currentShapeIndex = 0;
+        
+        // 初始化当前形状索引
+        currentShapeIndex = shapes.indexOf(currentGesture);
         
         // 初始化函数
         function init() {
