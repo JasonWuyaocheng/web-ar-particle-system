@@ -69,8 +69,17 @@
     </script>
     
     <!-- 引入 MediaPipe 库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js"></script>
+    <script type="module">
+        // 使用ES6模块方式导入MediaPipe库
+        import { Camera } from "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js";
+        import { Hands } from "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js";
+        
+        // 将导入的模块赋值给全局变量
+        window.MediaPipeCamera = Camera;
+        window.MediaPipeHands = Hands;
+        
+        console.log('MediaPipe库通过ES6模块加载完成');
+    </script>
 
     <script>
         // 全局变量
@@ -295,7 +304,7 @@
             console.log('开始初始化MediaPipe库');
             
             // 检查Hands库
-            if (typeof window.Hands === 'undefined' || typeof window.Hands !== 'function') {
+            if ((typeof window.Hands === 'undefined' || typeof window.Hands !== 'function')) {
                 console.error('Hands库未定义或不是函数');
                 // 尝试从其他可能的位置获取
                 if (typeof window.MediaPipeHands !== 'undefined' && typeof window.MediaPipeHands === 'function') {
@@ -308,7 +317,7 @@
             }
             
             // 检查Camera库
-            if (typeof window.Camera === 'undefined' || typeof window.Camera !== 'function') {
+            if ((typeof window.Camera === 'undefined' || typeof window.Camera !== 'function')) {
                 console.error('Camera库未定义或不是函数');
                 // 尝试从其他可能的位置获取
                 if (typeof window.MediaPipeCamera !== 'undefined' && typeof window.MediaPipeCamera === 'function') {
@@ -328,8 +337,8 @@
             console.log('检查MediaPipe库加载状态');
             
             // 检查所有可能的构造函数
-            const handsAvailable = typeof window.Hands === 'function' || typeof window.MediaPipeHands === 'function';
-            const cameraAvailable = typeof window.Camera === 'function' || typeof window.MediaPipeCamera === 'function';
+            const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands === 'function');
+            const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera === 'function');
             
             console.log('Hands库可用:', handsAvailable, 'Camera库可用:', cameraAvailable);
             
@@ -445,11 +454,11 @@
                             let CameraConstructor = window.Camera;
                             
                             // 检查备用构造函数
-                            if (typeof HandsConstructor !== 'function' && typeof window.MediaPipeHands === 'function') {
+                            if ((typeof HandsConstructor !== 'function') && (typeof window.MediaPipeHands === 'function')) {
                                 HandsConstructor = window.MediaPipeHands;
                             }
                             
-                            if (typeof CameraConstructor !== 'function' && typeof window.MediaPipeCamera === 'function') {
+                            if ((typeof CameraConstructor !== 'function') && (typeof window.MediaPipeCamera === 'function')) {
                                 CameraConstructor = window.MediaPipeCamera;
                             }
                             
@@ -898,8 +907,8 @@
             // 检查库是否已加载
             const checkLibraries = () => {
                 // 检查所有可能的构造函数
-                const handsAvailable = typeof window.Hands === 'function' || typeof window.MediaPipeHands === 'function';
-                const cameraAvailable = typeof window.Camera === 'function' || typeof window.MediaPipeCamera === 'function';
+                const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands === 'function');
+                const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera === 'function');
                 
                 if (handsAvailable && cameraAvailable) {
                     console.log('MediaPipe库加载完成');
