@@ -52,7 +52,7 @@ http-server
 
 ### 在线体验
 
-GitHub Pages 部署版本：[https://用户名.github.io/web-ar-particle-system/WebARParticleSystem.html](https://用户名.github.io/web-ar-particle-system/WebARParticleSystem.html)
+GitHub Pages 部署版本：[https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html](https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html)
 
 ## 使用说明
 
@@ -83,4 +83,5 @@ GitHub Pages 部署版本：[https://用户名.github.io/web-ar-particle-system/
 
 - 使用 unpkg CDN 确保依赖加载稳定性
 - 单文件 HTML 实现，便于部署和分享
+
 - 响应式设计，适配不同屏幕尺寸
