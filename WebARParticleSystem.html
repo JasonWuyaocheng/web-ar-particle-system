@@ -69,56 +69,17 @@
     </script>
     
     <!-- 引入 MediaPipe 库 -->
-    <script>
-        // 使用现代方式加载MediaPipe库
-        (function() {
-            // 创建加载脚本的函数
-            function loadScript(src) {
-                return new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = src;
-                    script.onload = () => resolve(script);
-                    script.onerror = (error) => reject(error);
-                    document.head.appendChild(script);
-                });
-            }
-            
-            // 按顺序加载库
-            async function loadMediaPipeLibraries() {
-                try {
-                    // 检查库是否已经加载
-                    if (typeof window.Hands !== 'undefined' && typeof window.Camera !== 'undefined') {
-                        console.log('MediaPipe库已预先加载');
-                        return;
-                    }
-                    
-                    console.log('开始加载MediaPipe库');
-                    
-                    // 加载Hands库（使用最新版本）
-                    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js');
-                    console.log('Hands库加载完成');
-                    
-                    // 加载Camera库（使用最新版本）
-                    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js');
-                    console.log('Camera库加载完成');
-                    
-                    console.log('MediaPipe库全部加载完成');
-                } catch (error) {
-                    console.error('加载MediaPipe库失败:', error);
-                }
-            }
-            
-            // 在页面加载完成后开始加载库
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', loadMediaPipeLibraries);
-            } else {
-                loadMediaPipeLibraries();
-            }
-        })();
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js"></script>
     <script>
         // 确保库已加载的备用方案
         window.addEventListener('load', () => {
+            console.log('库加载检查:');
+            console.log('- Hands:', typeof window.Hands);
+            console.log('- Camera:', typeof window.Camera);
+            console.log('- MediaPipeHands:', typeof window.MediaPipeHands);
+            console.log('- MediaPipeCamera:', typeof window.MediaPipeCamera);
+            
             // 如果库仍未加载，尝试直接赋值
             if (typeof window.Hands === 'undefined' && typeof window.MediaPipeHands !== 'undefined') {
                 window.Hands = window.MediaPipeHands;
@@ -428,6 +389,10 @@
                     // 检查库是否已加载
                     const handsAvailable = (typeof window.Hands !== 'undefined') || (typeof window.MediaPipeHands !== 'undefined');
                     const cameraAvailable = (typeof window.Camera !== 'undefined') || (typeof window.MediaPipeCamera !== 'undefined');
+                    
+                    console.log(`检查库加载状态 (${attempts}/${maxAttempts}):`);
+                    console.log('- Hands可用:', handsAvailable, '类型:', typeof window.Hands);
+                    console.log('- Camera可用:', cameraAvailable, '类型:', typeof window.Camera);
                     
                     if (handsAvailable && cameraAvailable) {
                         console.log('MediaPipe库加载完成');
