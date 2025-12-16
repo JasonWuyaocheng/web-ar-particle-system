@@ -88,8 +88,8 @@
             }
                 
             // 使用单个可靠的CDN源
-            const handsSource = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1640022724/hands.js';
-            const cameraSource = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1620240230/camera_utils.js';
+            const handsSource = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js';
+            const cameraSource = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js';
                 
             // 加载库
             loadScript(handsSource, () => {
@@ -719,7 +719,7 @@
                             // 使用更兼容的初始化方式
                             const hands = new HandsConstructor({
                                 locateFile: (file) => {
-                                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1640022724/${file}`;
+                                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/${file}`;
                                 }
                             });
                             
