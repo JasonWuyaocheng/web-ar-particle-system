@@ -57,8 +57,6 @@
     <!-- 引入 Three.js 和相关库 -->
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js?v=0.3.1675466862"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js?v=0.3.1675469240"></script>
     <script>
         // 添加库加载调试信息
         window.addEventListener('load', () => {
@@ -69,6 +67,10 @@
             console.log('- window.MediaPipeCamera:', typeof window.MediaPipeCamera);
         });
     </script>
+    
+    <!-- 引入 MediaPipe 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js"></script>
 
     <script>
         // 全局变量
@@ -293,26 +295,28 @@
             console.log('开始初始化MediaPipe库');
             
             // 检查Hands库
-            if (typeof window.Hands === 'undefined') {
-                console.error('Hands库未定义');
+            if (typeof window.Hands === 'undefined' || typeof window.Hands !== 'function') {
+                console.error('Hands库未定义或不是函数');
                 // 尝试从其他可能的位置获取
-                if (typeof window.MediaPipeHands !== 'undefined') {
+                if (typeof window.MediaPipeHands !== 'undefined' && typeof window.MediaPipeHands === 'function') {
                     window.Hands = window.MediaPipeHands;
                     console.log('已从MediaPipeHands重新赋值');
                 } else {
-                    throw new Error('无法找到Hands库');
+                    console.warn('无法找到有效的Hands库');
+                    // 不抛出错误，继续尝试
                 }
             }
             
             // 检查Camera库
-            if (typeof window.Camera === 'undefined') {
-                console.error('Camera库未定义');
+            if (typeof window.Camera === 'undefined' || typeof window.Camera !== 'function') {
+                console.error('Camera库未定义或不是函数');
                 // 尝试从其他可能的位置获取
-                if (typeof window.MediaPipeCamera !== 'undefined') {
+                if (typeof window.MediaPipeCamera !== 'undefined' && typeof window.MediaPipeCamera === 'function') {
                     window.Camera = window.MediaPipeCamera;
                     console.log('已从MediaPipeCamera重新赋值');
                 } else {
-                    throw new Error('无法找到Camera库');
+                    console.warn('无法找到有效的Camera库');
+                    // 不抛出错误，继续尝试
                 }
             }
             
@@ -323,14 +327,15 @@
         function checkMediaPipeLibraries() {
             console.log('检查MediaPipe库加载状态');
             
-            // 检查必要的构造函数
-            const handsAvailable = typeof window.Hands === 'function';
-            const cameraAvailable = typeof window.Camera === 'function';
+            // 检查所有可能的构造函数
+            const handsAvailable = typeof window.Hands === 'function' || typeof window.MediaPipeHands === 'function';
+            const cameraAvailable = typeof window.Camera === 'function' || typeof window.MediaPipeCamera === 'function';
             
             console.log('Hands库可用:', handsAvailable, 'Camera库可用:', cameraAvailable);
             
             if (!handsAvailable || !cameraAvailable) {
                 console.error('MediaPipe库未正确加载 - Hands:', typeof window.Hands, 'Camera:', typeof window.Camera);
+                console.error('MediaPipeHands:', typeof window.MediaPipeHands, 'MediaPipeCamera:', typeof window.MediaPipeCamera);
                 document.getElementById('gestureStatus').textContent = '错误: 手势识别库加载失败';
                 document.getElementById('loadingIndicator').style.display = 'block';
                 document.getElementById('loadingIndicator').textContent = '手势识别库加载失败，请检查网络连接后刷新页面。';
@@ -435,20 +440,32 @@
                     // 使用setTimeout确保Hands模块正确初始化
                     setTimeout(() => {
                         try {
-                            // 直接使用全局构造函数
-                            if (typeof window.Hands !== 'function') {
-                                throw new Error('window.Hands 不是有效的构造函数');
+                            // 使用可用的构造函数
+                            let HandsConstructor = window.Hands;
+                            let CameraConstructor = window.Camera;
+                            
+                            // 检查备用构造函数
+                            if (typeof HandsConstructor !== 'function' && typeof window.MediaPipeHands === 'function') {
+                                HandsConstructor = window.MediaPipeHands;
                             }
                             
-                            if (typeof window.Camera !== 'function') {
-                                throw new Error('window.Camera 不是有效的构造函数');
+                            if (typeof CameraConstructor !== 'function' && typeof window.MediaPipeCamera === 'function') {
+                                CameraConstructor = window.MediaPipeCamera;
+                            }
+                            
+                            if (typeof HandsConstructor !== 'function') {
+                                throw new Error('无法找到有效的Hands构造函数');
+                            }
+                            
+                            if (typeof CameraConstructor !== 'function') {
+                                throw new Error('无法找到有效的Camera构造函数');
                             }
                             
                             // 初始化Hands模块
                             console.log('正在初始化Hands模块');
-                            const hands = new window.Hands({
+                            const hands = new HandsConstructor({
                                 locateFile: (file) => {
-                                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/${file}`;
                                 }
                             });
                             
@@ -465,7 +482,7 @@
                             
                             // 初始化摄像头
                             console.log('正在初始化摄像头');
-                            const camera = new window.Camera(cameraVideo, {
+                            const camera = new CameraConstructor(cameraVideo, {
                                 onFrame: async () => {
                                     await hands.send({image: cameraVideo});
                                 },
@@ -880,8 +897,9 @@
         window.addEventListener('load', () => {
             // 检查库是否已加载
             const checkLibraries = () => {
-                const handsAvailable = typeof window.Hands === 'function';
-                const cameraAvailable = typeof window.Camera === 'function';
+                // 检查所有可能的构造函数
+                const handsAvailable = typeof window.Hands === 'function' || typeof window.MediaPipeHands === 'function';
+                const cameraAvailable = typeof window.Camera === 'function' || typeof window.MediaPipeCamera === 'function';
                 
                 if (handsAvailable && cameraAvailable) {
                     console.log('MediaPipe库加载完成');
@@ -889,6 +907,7 @@
                 } else {
                     console.log('等待MediaPipe库加载...');
                     console.log('Hands:', typeof window.Hands, 'Camera:', typeof window.Camera);
+                    console.log('MediaPipeHands:', typeof window.MediaPipeHands, 'MediaPipeCamera:', typeof window.MediaPipeCamera);
                     setTimeout(checkLibraries, 500);
                 }
             };
