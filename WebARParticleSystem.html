@@ -71,38 +71,20 @@
     <!-- 引入 MediaPipe 库 -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js"></script>
-    <script>
-        // 动态加载MediaPipe库
-        (function() {
-            // 检查库是否已经加载
-            if (typeof window.Hands !== 'undefined' && typeof window.Camera !== 'undefined') {
-                console.log('MediaPipe库已预先加载');
-                return;
-            }
+    <script type="module">
+        // 使用ES模块方式导入MediaPipe库
+        try {
+            import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js';
+            import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js';
             
-            // 动态创建script标签来加载库
-            function loadScript(src, onLoad, onError) {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = onLoad;
-                script.onerror = onError;
-                document.head.appendChild(script);
-            }
+            // 将导入的类赋值给全局对象
+            window.MediaPipeCamera = Camera;
+            window.MediaPipeHands = Hands;
             
-            // 加载Camera库
-            loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js', () => {
-                console.log('Camera库加载完成');
-                
-                // 加载Hands库
-                loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js', () => {
-                    console.log('Hands库加载完成');
-                }, (error) => {
-                    console.error('Hands库加载失败:', error);
-                });
-            }, (error) => {
-                console.error('Camera库加载失败:', error);
-            });
-        })();
+            console.log('MediaPipe库通过ES模块加载完成');
+        } catch (error) {
+            console.error('ES模块导入MediaPipe库失败:', error);
+        }
     </script>
 
     <script>
@@ -331,7 +313,7 @@
             if ((typeof window.Hands === 'undefined' || typeof window.Hands !== 'function')) {
                 console.error('Hands库未定义或不是函数');
                 // 尝试从其他可能的位置获取
-                if (typeof window.MediaPipeHands !== 'undefined' && typeof window.MediaPipeHands === 'function') {
+                if (typeof window.MediaPipeHands !== 'undefined') {
                     window.Hands = window.MediaPipeHands;
                     console.log('已从MediaPipeHands重新赋值');
                 } else {
@@ -344,7 +326,7 @@
             if ((typeof window.Camera === 'undefined' || typeof window.Camera !== 'function')) {
                 console.error('Camera库未定义或不是函数');
                 // 尝试从其他可能的位置获取
-                if (typeof window.MediaPipeCamera !== 'undefined' && typeof window.MediaPipeCamera === 'function') {
+                if (typeof window.MediaPipeCamera !== 'undefined') {
                     window.Camera = window.MediaPipeCamera;
                     console.log('已从MediaPipeCamera重新赋值');
                 } else {
@@ -361,8 +343,8 @@
             console.log('检查MediaPipe库加载状态');
             
             // 检查所有可能的构造函数
-            const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands === 'function');
-            const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera === 'function');
+            const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands !== 'undefined');
+            const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera !== 'undefined');
             
             console.log('Hands库可用:', handsAvailable, 'Camera库可用:', cameraAvailable);
             
@@ -390,8 +372,8 @@
                     attempts++;
                     
                     // 检查库是否已加载
-                    const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands === 'function');
-                    const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera === 'function');
+                    const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands !== 'undefined');
+                    const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera !== 'undefined');
                     
                     if (handsAvailable && cameraAvailable) {
                         console.log('MediaPipe库加载完成');
@@ -520,11 +502,11 @@
                             let CameraConstructor = window.Camera;
                             
                             // 检查备用构造函数
-                            if ((typeof HandsConstructor !== 'function') && (typeof window.MediaPipeHands === 'function')) {
+                            if ((typeof HandsConstructor !== 'function') && (typeof window.MediaPipeHands !== 'undefined')) {
                                 HandsConstructor = window.MediaPipeHands;
                             }
                             
-                            if ((typeof CameraConstructor !== 'function') && (typeof window.MediaPipeCamera === 'function')) {
+                            if ((typeof CameraConstructor !== 'function') && (typeof window.MediaPipeCamera !== 'undefined')) {
                                 CameraConstructor = window.MediaPipeCamera;
                             }
                             
@@ -973,8 +955,8 @@
             // 检查库是否已加载
             const checkLibraries = () => {
                 // 检查所有可能的构造函数
-                const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands === 'function');
-                const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera === 'function');
+                const handsAvailable = (typeof window.Hands === 'function') || (typeof window.MediaPipeHands !== 'undefined');
+                const cameraAvailable = (typeof window.Camera === 'function') || (typeof window.MediaPipeCamera !== 'undefined');
                 
                 if (handsAvailable && cameraAvailable) {
                     console.log('MediaPipe库加载完成');
