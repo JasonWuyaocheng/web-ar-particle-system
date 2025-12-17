@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WebAR 星球粒子系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            color: #fff;
+        }
+
+        #canvasContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 玻璃拟态面板 */
+        .glass-panel {
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.15), inset -0.5px -0.5px 0px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* 左侧信息面板 */
+        #infoPanel {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            width: 220px;
+            padding: 12px;
+            z-index: 100;
+            transform: scale(0.9);
+            transform-origin: top left;
+        }
+
+        #infoPanel h2 {
+            color: #ff8c00;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 4px 0;
+            padding: 4px 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            font-size: 11px;
+            border-left: 3px solid #ff8c00;
+        }
+
+        .status-label {
+            color: #aaa;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-value {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #ff0000;
+            box-shadow: 0 0 4px #ff0000;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .status-indicator.active {
+            background: #00ff00;
+            box-shadow: 0 0 6px #00ff00;
+            animation: none;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 右侧手势指示器 */
+        #gestureIndicator {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            width: 160px;
+            padding: 12px;
+            z-index: 100;
+            transform: scale(0.9);
+            transform-origin: top right;
+            text-align: center;
+        }
+
+        #gestureIndicator h3 {
+            color: #ff8c00;
+            font-size: 12px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+        }
+
+        .gesture-icon {
+            font-size: 36px;
+            margin: 6px 0;
+            filter: drop-shadow(0 0 8px rgba(255, 140, 0, 0.6));
+        }
+
+        .gesture-name {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            text-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+            margin-top: 4px;
+        }
+
+        /* 顶部操作按钮 */
+        #topButtons {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .top-btn {
+            padding: 8px 16px;
+            background: rgba(255, 140, 0, 0.1);
+            border: 1px solid rgba(255, 140, 0, 0.4);
+            color: #ff8c00;
+            cursor: pointer;
+            font-size: 11px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+
+        .top-btn:hover {
+            background: rgba(255, 140, 0, 0.2);
+            border-color: #ff8c00;
+            box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
+        }
+
+        /* 底部控制面板 */
+        #controlPanel {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            padding: 10px;
+            z-index: 100;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 220px;
+            transform: scale(0.9);
+            transform-origin: bottom left;
+        }
+
+        .control-title {
+            grid-column: span 2;
+            font-size: 10px;
+            color: #ff8c00;
+            text-align: center;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 140, 0, 0.2);
+            padding-bottom: 3px;
+        }
+
+        .control-btn {
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 140, 0, 0.3);
+            color: #ff8c00;
+            cursor: pointer;
+            font-size: 10px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 140, 0, 0.1);
+            border-color: #ff8c00;
+            box-shadow: 0 0 12px rgba(255, 140, 0, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .control-btn:hover::before {
+            left: 100%;
+        }
+
+        /* 进度指示器 */
+        #progressIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.95);
+            padding: 40px;
+            border-radius: 16px;
+            border: 2px solid #ff8c00;
+            text-align: center;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 0 50px rgba(255, 140, 0, 0.3);
+            min-width: 320px;
+            display: none;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff8c00, #ff6b00);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+        }
+
+        .progress-text {
+            color: #ff8c00;
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .progress-steps {
+            color: #888;
+            font-size: 11px;
+            margin-top: 5px;
+            text-align: left;
+        }
+
+        .progress-step {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+
+        .progress-step.complete {
+            color: #00ff88;
+        }
+
+        .progress-step.current {
+            color: #ff8c00;
+            font-weight: 700;
+        }
+
+        /* 加载指示器 */
+        #loadingIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.95);
+            padding: 30px;
+            border-radius: 16px;
+            border: 2px solid #ff8c00;
+            text-align: center;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 0 50px rgba(255, 140, 0, 0.3);
+            min-width: 280px;
+            display: none;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 140, 0, 0.2);
+            border-top: 3px solid #ff8c00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loadingText {
+            color: #ff8c00;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+        }
+
+        /* 状态提示 */
+        #stateToast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(255, 140, 0, 0.95);
+            color: #000;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 10px 30px rgba(255, 140, 0, 0.4);
+            text-transform: uppercase;
+        }
+
+        #stateToast.show {
+            opacity: 1;
+        }
+
+        #stateToast.error {
+            background: rgba(255, 68, 68, 0.95);
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(255, 68, 68, 0.4);
+        }
+
+        /* 信息提示 */
+        #infoTooltip {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            color: #ff8c00;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 11px;
+            letter-spacing: 1px;
+            border: 1px solid rgba(255, 140, 0, 0.3);
+            backdrop-filter: blur(10px);
+            white-space: nowrap;
+            text-shadow: 0 0 5px rgba(255, 140, 0, 0.5);
+            font-weight: 600;
+        }
+
+        /* 拖拽标题样式 */
+        #mainTitle {
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            text-align: center;
+            cursor: move;
+            user-select: none;
+            padding: 10px;
+            pointer-events: auto;
+        }
+
+        .title-line {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            color: #ff8c00;
+            text-shadow: 0 0 15px rgba(255, 140, 0, 0.6);
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        .title-subline {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            #infoPanel, #controlPanel {
+                transform: scale(0.75);
+                width: 180px;
+            }
+            
+            #gestureIndicator {
+                transform: scale(0.75);
+                width: 130px;
+            }
+            
+            .top-btn {
+                padding: 6px 12px;
+                font-size: 9px;
+            }
+
+            #infoTooltip {
+                font-size: 9px;
+                padding: 8px 16px;
+                bottom: 10px;
+            }
+
+            #progressIndicator {
+                min-width: 280px;
+                padding: 30px;
+            }
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 140, 0, 0.5);
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 140, 0, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <!-- 3D画布容器 -->
+    <div id="canvasContainer"></div>
+
+    <!-- 进度指示器 -->
+    <div id="progressIndicator">
+        <div class="loader"></div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="progress-text" id="progressText">正在初始化星球系统...</div>
+        <div class="progress-steps" id="progressSteps">
+            <div class="progress-step" data-step="scene">● 创建3D场景</div>
+            <div class="progress-step" data-step="particles">● 生成粒子系统</div>
+            <div class="progress-step" data-step="camera">● 请求摄像头权限</div>
+            <div class="progress-step" data-step="gesture">● 初始化手势识别</div>
+        </div>
+    </div>
+
+    <!-- 左侧信息面板 -->
+    <div id="infoPanel" class="glass-panel">
+        <h2>🪐 星球状态</h2>
+        <div class="status-item">
+            <span class="status-label">连接状态</span>
+            <span class="status-value"><span class="status-indicator" id="statusIndicator"></span><span id="gestureStatus">初始化中...</span></span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">核心粒子</span>
+            <span class="status-value" style="color: #ff8c00;">8,000</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">星环粒子</span>
+            <span class="status-value" style="color: #ffffff;">4,000</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">相机距离</span>
+            <span class="status-value" id="cameraDistance">15.0</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">帧率</span>
+            <span class="status-value" id="fpsCounter">0 FPS</span>
+        </div>
+    </div>
+
+    <!-- 右侧手势指示器 -->
+    <div id="gestureIndicator" class="glass-panel">
+        <h3>手势识别</h3>
+        <div class="gesture-icon" id="gestureIcon">✋</div>
+        <div class="gesture-name" id="gestureName">初始化中...</div>
+    </div>
+
+    <!-- 顶部操作按钮 -->
+    <div id="topButtons">
+        <button class="top-btn" onclick="toggleFullScreen()">⛶ 全屏</button>
+        <button class="top-btn" onclick="toggleUI()">👁 隐藏UI</button>
+    </div>
+
+    <!-- 底部控制面板 -->
+    <div id="controlPanel" class="glass-panel">
+        <div class="control-title">快速控制</div>
+        <button class="control-btn" onclick="resetCamera()">🔄 重置相机</button>
+        <button class="control-btn" onclick="toggleAutoRotate()">🌀 自动旋转</button>
+        <button class="control-btn" onclick="toggleStarGlow()">⭐ 星环发光</button>
+        <button class="control-btn" onclick="togglePlanetPulse()">💓 星球脉动</button>
+    </div>
+
+    <!-- 信息提示 -->
+    <div id="infoTooltip">💡 旋转:挥手 | 缩放:握拳/张手 | 需要摄像头权限</div>
+
+    <!-- 状态提示 -->
+    <div id="stateToast"></div>
+
+    <!-- 加载指示器 -->
+    <div id="loadingIndicator">
+        <div class="loader"></div>
+        <div id="loadingText">正在初始化系统...</div>
+    </div>
+
+    <!-- Three.js - 使用 unpkg 确保稳定加载 -->
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    
+    <!-- MediaPipe Hands - 使用 unpkg 确保稳定加载 -->
+    <script src="https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.js"></script>
+    <script src="https://unpkg.com/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+
+    <script>
+        // ==================== 核心配置 ====================
+        const CONFIG = {
+            PLANET: {
+                PARTICLE_COUNT: 8000,      // 核心星球粒子数量
+                COLOR: 0xff8c00,           // 橙色
+                BASE_RADIUS: 3.0,          // 基础半径
+                SURFACE_VARIANCE: 0.8      // 表面变化幅度
+            },
+            RINGS: {
+                PARTICLE_COUNT: 4000,      // 星环粒子数量
+                COLOR: 0xffffff,           // 白色
+                INNER_RADIUS: 5.0,         // 内半径
+                OUTER_RADIUS: 8.0,         // 外半径
+                THICKNESS: 1.2             // 厚度
+            },
+            CAMERA: {
+                FOV: 60,
+                MIN_DISTANCE: 8,           // 最小距离
+                MAX_DISTANCE: 30,          // 最大距离
+                DEFAULT_DISTANCE: 15,      // 默认距离
+                ZOOM_SPEED: 0.3,           // 缩放速度
+                ROTATION_SPEED: 0.02       // 旋转速度
+            },
+            PHYSICS: {
+                DAMPING: 0.95,             // 阻尼
+                PULSE_SPEED: 0.002,        // 脉动速度
+                AUTO_ROTATE_SPEED: 0.005   // 自动旋转速度
+            }
+        };
+
+        // ==================== 全局变量 ====================
+        let scene, camera, renderer;
+        let planetParticles, ringParticles;
+        let planetPositions, planetVelocities, planetTargets;
+        let ringPositions, ringVelocities, ringTargets;
+        
+        // 手势相关
+        let handsModule, cameraVideo, handsObj;
+        let handLandmarks = null;
+        let prevHandPos = { x: 0, y: 0, z: 0 };
+        let handVelocity = { x: 0, y: 0, z: 0 };
+        let handSpeed = 0;
+        let isGrapActive = false;
+
+        // 相机控制
+        let cameraDistance = CONFIG.CAMERA.DEFAULT_DISTANCE;
+        let targetCameraDistance = CONFIG.CAMERA.DEFAULT_DISTANCE;
+        let cameraRotation = { x: 0, y: 0 };
+        let targetCameraRotation = { x: 0, y: 0 };
+        let autoRotateEnabled = false;
+        let starGlowEnabled = true;
+        let planetPulseEnabled = true;
+
+        // 性能监控
+        let lastFrameTime = 0;
+        let frameCount = 0;
+        let fpsUpdateTimer = 0;
+        let fps = 0;
+
+        // 进度管理
+        let progressSteps = ['scene', 'particles', 'camera', 'gesture'];
+        let currentProgressStep = 0;
+
+        // ==================== 进度显示系统 ====================
+        function showProgress() {
+            const el = document.getElementById('progressIndicator');
+            if (el) {
+                el.style.display = 'block';
+                updateProgress(0, '正在初始化星球系统...');
+            }
+        }
+
+        function hideProgress() {
+            const el = document.getElementById('progressIndicator');
+            if (el) {
+                el.style.display = 'none';
+            }
+        }
+
+        function updateProgress(percent, text, stepName = null) {
+            const bar = document.getElementById('progressBar');
+            const textEl = document.getElementById('progressText');
+
+            if (bar) {
+                bar.style.width = percent + '%';
+            }
+            if (textEl) {
+                textEl.textContent = text;
+            }
+
+            // 更新步骤状态
+            if (stepName) {
+                const stepIndex = progressSteps.indexOf(stepName);
+                if (stepIndex >= 0) {
+                    for (let i = 0; i <= stepIndex; i++) {
+                        const stepEl = document.querySelector(`[data-step="${progressSteps[i]}"]`);
+                        if (stepEl) {
+                            if (i < stepIndex) {
+                                stepEl.className = 'progress-step complete';
+                            } else if (i === stepIndex) {
+                                stepEl.className = 'progress-step current';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function completeStep(stepName) {
+            const stepIndex = progressSteps.indexOf(stepName);
+            if (stepIndex >= 0) {
+                const stepEl = document.querySelector(`[data-step="${stepName}"]`);
+                if (stepEl) {
+                    stepEl.className = 'progress-step complete';
+                }
+                currentProgressStep = stepIndex + 1;
+                const percent = ((stepIndex + 1) / progressSteps.length) * 100;
+                updateProgress(percent, `完成: ${stepName}`);
+            }
+        }
+
+        // ==================== 初始化系统 ====================
+        function init() {
+            showProgress();
+            updateProgress(5, '正在创建3D场景...', 'scene');
+
+            // 1. 创建场景
+            createScene();
+            completeStep('scene');
+
+            // 2. 创建粒子系统
+            setTimeout(() => {
+                updateProgress(25, '正在生成8000+4000粒子...', 'particles');
+                createParticleSystems();
+                completeStep('particles');
+
+                // 3. 开始动画循环
+                animate();
+
+                // 4. 请求摄像头权限
+                setTimeout(() => {
+                    updateProgress(65, '正在请求摄像头权限...', 'camera');
+                    initCameraAndHands();
+                }, 300);
+            }, 300);
+        }
+
+        // ==================== 场景创建 ====================
+        function createScene() {
+            // 场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            scene.fog = new THREE.Fog(0x000000, 20, 80);
+
+            // 相机
+            camera = new THREE.PerspectiveCamera(
+                CONFIG.CAMERA.FOV,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            updateCameraPosition();
+
+            // 渲染器
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvasContainer').appendChild(renderer.domElement);
+
+            // 窗口调整
+            window.addEventListener('resize', onWindowResize);
+
+            // 添加环境光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+            scene.add(ambientLight);
+
+            // 添加点光源（模拟星球发光）
+            const pointLight = new THREE.PointLight(0xff8c00, 1.5, 50);
+            pointLight.position.set(0, 0, 0);
+            scene.add(pointLight);
+        }
+
+        // ==================== 粒子系统创建 ====================
+        function createParticleSystems() {
+            // 1. 创建星球核心粒子
+            createPlanetParticles();
+            
+            // 2. 创建星环粒子
+            createRingParticles();
+        }
+
+        function createPlanetParticles() {
+            const count = CONFIG.PLANET.PARTICLE_COUNT;
+            const geometry = new THREE.BufferGeometry();
+            
+            // 分配数组
+            planetPositions = new Float32Array(count * 3);
+            planetVelocities = new Float32Array(count * 3);
+            planetTargets = new Float32Array(count * 3);
+
+            // 使用Fibonacci球面算法创建最均匀的分布
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                
+                // Fibonacci球面采样
+                const y = 1 - (i / (count - 1)) * 2; // y从1到-1
+                const radius2D = Math.sqrt(1 - y * y); // 圆柱半径
+                
+                const theta = goldenAngle * i; // 黄金角度
+                
+                const x = Math.cos(theta) * radius2D;
+                const z = Math.sin(theta) * radius2D;
+                
+                // 分层半径：内部密集，外部稀疏
+                const layer = i / count;
+                const baseRadius = CONFIG.PLANET.BASE_RADIUS + Math.pow(layer, 0.6) * CONFIG.PLANET.SURFACE_VARIANCE;
+                
+                // 轻微随机化避免完全重叠
+                const jitter = 0.05;
+                const finalX = x * baseRadius + (Math.random() - 0.5) * jitter;
+                const finalY = y * baseRadius + (Math.random() - 0.5) * jitter;
+                const finalZ = z * baseRadius + (Math.random() - 0.5) * jitter;
+                
+                planetPositions[i3] = finalX;
+                planetPositions[i3 + 1] = finalY;
+                planetPositions[i3 + 2] = finalZ;
+                
+                // 目标位置初始为相同值
+                planetTargets[i3] = finalX;
+                planetTargets[i3 + 1] = finalY;
+                planetTargets[i3 + 2] = finalZ;
+                
+                // 初始速度为0
+                planetVelocities[i3] = 0;
+                planetVelocities[i3 + 1] = 0;
+                planetVelocities[i3 + 2] = 0;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(planetPositions, 3));
+
+            // 材质：橙色，大尺寸，高亮度
+            const material = new THREE.PointsMaterial({
+                color: CONFIG.PLANET.COLOR,
+                size: 4.0,                    // 大尺寸
+                transparent: true,
+                opacity: 0.9,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,  // 发光效果
+                depthWrite: false
+            });
+
+            planetParticles = new THREE.Points(geometry, material);
+            scene.add(planetParticles);
+        }
+
+        function createRingParticles() {
+            const count = CONFIG.RINGS.PARTICLE_COUNT;
+            const geometry = new THREE.BufferGeometry();
+            
+            // 分配数组
+            ringPositions = new Float32Array(count * 3);
+            ringVelocities = new Float32Array(count * 3);
+            ringTargets = new Float32Array(count * 3);
+
+            // 创建双层星环
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                
+                // 分配到内外两层
+                const layer = i % 2 === 0 ? 0 : 1; // 0=内环，1=外环
+                const baseRadius = CONFIG.RINGS.INNER_RADIUS + layer * (CONFIG.RINGS.OUTER_RADIUS - CONFIG.RINGS.INNER_RADIUS);
+                
+                // 在圆环上均匀分布
+                const angle = (i / count) * Math.PI * 2 * 2; // 两倍角度确保完整覆盖
+                const height = (Math.random() - 0.5) * CONFIG.RINGS.THICKNESS; // 厚度
+                
+                const x = Math.cos(angle) * baseRadius;
+                const z = Math.sin(angle) * baseRadius;
+                const y = height;
+                
+                ringPositions[i3] = x;
+                ringPositions[i3 + 1] = y;
+                ringPositions[i3 + 2] = z;
+                
+                // 目标位置
+                ringTargets[i3] = x;
+                ringTargets[i3 + 1] = y;
+                ringTargets[i3 + 2] = z;
+                
+                // 初始速度为0
+                ringVelocities[i3] = 0;
+                ringVelocities[i3 + 1] = 0;
+                ringVelocities[i3 + 2] = 0;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(ringPositions, 3));
+
+            // 材质：白色，中等尺寸，明亮
+            const material = new THREE.PointsMaterial({
+                color: CONFIG.RINGS.COLOR,
+                size: 2.5,                    // 中等尺寸
+                transparent: true,
+                opacity: 0.8,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,  // 发光效果
+                depthWrite: false
+            });
+
+            ringParticles = new THREE.Points(geometry, material);
+            scene.add(ringParticles);
+        }
+
+        // ==================== 物理动画 ====================
+        function updatePhysics(deltaTime) {
+            const dt = Math.min(deltaTime, 0.05); // 限制最大时间步长
+
+            // 1. 星球粒子物理
+            if (planetParticles) {
+                // 目标位置更新（脉动效果）
+                if (planetPulseEnabled) {
+                    const time = Date.now() * CONFIG.PHYSICS.PULSE_SPEED;
+                    const count = CONFIG.PLANET.PARTICLE_COUNT;
+                    
+                    for (let i = 0; i < count; i++) {
+                        const i3 = i * 3;
+                        
+                        // 计算当前位置到原点的距离
+                        const currentDist = Math.sqrt(
+                            planetPositions[i3] * planetPositions[i3] +
+                            planetPositions[i3 + 1] * planetPositions[i3 + 1] +
+                            planetPositions[i3 + 2] * planetPositions[i3 + 2]
+                        );
+                        
+                        // 基础半径 + 脉动
+                        const baseRadius = currentDist;
+                        const pulseFactor = 1 + 0.15 * Math.sin(time + i * 0.01);
+                        const targetRadius = baseRadius * pulseFactor;
+                        
+                        // 归一化并重新缩放
+                        const nx = planetPositions[i3] / currentDist;
+                        const ny = planetPositions[i3 + 1] / currentDist;
+                        const nz = planetPositions[i3 + 2] / currentDist;
+                        
+                        planetTargets[i3] = nx * targetRadius;
+                        planetTargets[i3 + 1] = ny * targetRadius;
+                        planetTargets[i3 + 2] = nz * targetRadius;
+                    }
+                }
+
+                // 物理计算：朝向目标位置
+                for (let i = 0; i < CONFIG.PLANET.PARTICLE_COUNT; i++) {
+                    const i3 = i * 3;
+                    
+                    // 当前位置
+                    const cx = planetPositions[i3];
+                    const cy = planetPositions[i3 + 1];
+                    const cz = planetPositions[i3 + 2];
+                    
+                    // 目标位置
+                    const tx = planetTargets[i3];
+                    const ty = planetTargets[i3 + 1];
+                    const tz = planetTargets[i3 + 2];
+                    
+                    // 计算加速度（朝向目标）
+                    const dx = tx - cx;
+                    const dy = ty - cy;
+                    const dz = tz - cz;
+                    
+                    // 应用加速度到速度
+                    planetVelocities[i3] += dx * 0.1;
+                    planetVelocities[i3 + 1] += dy * 0.1;
+                    planetVelocities[i3 + 2] += dz * 0.1;
+                    
+                    // 应用阻尼
+                    planetVelocities[i3] *= CONFIG.PHYSICS.DAMPING;
+                    planetVelocities[i3 + 1] *= CONFIG.PHYSICS.DAMPING;
+                    planetVelocities[i3 + 2] *= CONFIG.PHYSICS.DAMPING;
+                    
+                    // 更新位置
+                    planetPositions[i3] += planetVelocities[i3] * dt;
+                    planetPositions[i3 + 1] += planetVelocities[i3 + 1] * dt;
+                    planetPositions[i3 + 2] += planetVelocities[i3 + 2] * dt;
+                }
+                
+                planetParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // 2. 星环粒子物理
+            if (ringParticles) {
+                // 物理计算：朝向目标位置
+                for (let i = 0; i < CONFIG.RINGS.PARTICLE_COUNT; i++) {
+                    const i3 = i * 3;
+                    
+                    // 当前位置
+                    const cx = ringPositions[i3];
+                    const cy = ringPositions[i3 + 1];
+                    const cz = ringPositions[i3 + 2];
+                    
+                    // 目标位置
+                    const tx = ringTargets[i3];
+                    const ty = ringTargets[i3 + 1];
+                    const tz = ringTargets[i3 + 2];
+                    
+                    // 计算加速度（朝向目标）
+                    const dx = tx - cx;
+                    const dy = ty - cy;
+                    const dz = tz - cz;
+                    
+                    // 应用加速度到速度
+                    ringVelocities[i3] += dx * 0.08;
+                    ringVelocities[i3 + 1] += dy * 0.08;
+                    ringVelocities[i3 + 2] += dz * 0.08;
+                    
+                    // 应用阻尼
+                    ringVelocities[i3] *= CONFIG.PHYSICS.DAMPING;
+                    ringVelocities[i3 + 1] *= CONFIG.PHYSICS.DAMPING;
+                    ringVelocities[i3 + 2] *= CONFIG.PHYSICS.DAMPING;
+                    
+                    // 更新位置
+                    ringPositions[i3] += ringVelocities[i3] * dt;
+                    ringPositions[i3 + 1] += ringVelocities[i3 + 1] * dt;
+                    ringPositions[i3 + 2] += ringVelocities[i3 + 2] * dt;
+                }
+                
+                ringParticles.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+
+        // ==================== 相机控制 ====================
+        function updateCameraPosition() {
+            // 平滑插值
+            cameraDistance += (targetCameraDistance - cameraDistance) * 0.1;
+            cameraRotation.x += (targetCameraRotation.x - cameraRotation.x) * 0.1;
+            cameraRotation.y += (targetCameraRotation.y - cameraRotation.y) * 0.1;
+
+            // 应用自动旋转
+            if (autoRotateEnabled) {
+                targetCameraRotation.y += CONFIG.PHYSICS.AUTO_ROTATE_SPEED;
+            }
+
+            // 计算相机位置（球坐标）
+            const x = Math.sin(cameraRotation.y) * cameraDistance;
+            const z = Math.cos(cameraRotation.y) * cameraDistance;
+            const y = Math.sin(cameraRotation.x) * cameraDistance * 0.3;
+
+            camera.position.set(x, y + 3, z);
+            camera.lookAt(0, 0, 0);
+
+            // 更新UI
+            document.getElementById('cameraDistance').textContent = cameraDistance.toFixed(1);
+        }
+
+        // ==================== 手势识别 ====================
+        async function initCameraAndHands() {
+            try {
+                // 检查浏览器支持
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    startAutoMode('浏览器不支持摄像头');
+                    return;
+                }
+
+                // 检查HTTPS
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    startAutoMode('需要HTTPS环境');
+                    return;
+                }
+
+                // 请求摄像头
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user' 
+                    }
+                });
+
+                // 创建视频元素
+                cameraVideo = document.createElement('video');
+                cameraVideo.style.display = 'none';
+                cameraVideo.setAttribute('playsinline', true);
+                cameraVideo.muted = true;
+                document.body.appendChild(cameraVideo);
+                cameraVideo.srcObject = stream;
+
+                await new Promise(resolve => {
+                    cameraVideo.onloadedmetadata = resolve;
+                });
+
+                cameraVideo.play();
+
+                // 初始化MediaPipe Hands
+                updateProgress(85, '正在初始化手势识别...', 'gesture');
+
+                handsModule = new Hands({
+                    locateFile: (file) => {
+                        return `https://unpkg.com/@mediapipe/hands@0.4.1646424915/${file}`;
+                    }
+                });
+
+                handsModule.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5,
+                    selfieMode: true
+                });
+
+                handsModule.onResults(onHandResults);
+
+                // 初始化摄像头
+                handsObj = new Camera(cameraVideo, {
+                    onFrame: async () => {
+                        await handsModule.send({ image: cameraVideo });
+                    },
+                    width: 1280,
+                    height: 720
+                });
+
+                handsObj.start();
+
+                // 设置状态
+                updateStatus('手势识别已就绪', true);
+                completeStep('gesture');
+
+                // 隐藏进度指示器
+                setTimeout(() => {
+                    hideProgress();
+                }, 500);
+
+            } catch (error) {
+                console.error('摄像头初始化失败:', error);
+                startAutoMode('摄像头初始化失败');
+            }
+        }
+
+        function onHandResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handLandmarks = results.multiHandLandmarks[0];
+                detectGesture();
+                updateHandMetrics();
+            } else {
+                handLandmarks = null;
+                handSpeed = 0;
+                updateGestureDisplay(null);
+            }
+        }
+
+        function detectGesture() {
+            if (!handLandmarks) return;
+
+            const landmarks = handLandmarks;
+            
+            // 关键点
+            const thumbTip = landmarks[4];   // 拇指指尖
+            const indexTip = landmarks[8];   // 食指指尖
+            const middleTip = landmarks[12]; // 中指指尖
+            const ringTip = landmarks[16];   // 无名指指尖
+            const pinkyTip = landmarks[20];  // 小指指尖
+            const wrist = landmarks[0];      // 手腕
+
+            // 计算距离
+            const dist = (p1, p2) => Math.sqrt(
+                Math.pow(p1.x - p2.x, 2) + 
+                Math.pow(p1.y - p2.y, 2) + 
+                Math.pow(p1.z - p2.z, 2)
+            );
+
+            const thumbDist = dist(thumbTip, wrist);
+            const indexDist = dist(indexTip, wrist);
+            const middleDist = dist(middleTip, wrist);
+            const ringDist = dist(ringTip, wrist);
+            const pinkyDist = dist(pinkyTip, wrist);
+            const thumbIndexDist = dist(thumbTip, indexTip);
+
+            // 手势判断逻辑
+            let detectedGesture = null;
+
+            // 握拳：所有手指都弯曲（距离手腕近）
+            if (thumbDist < 0.08 && indexDist < 0.08 && middleDist < 0.08 && 
+                ringDist < 0.08 && pinkyDist < 0.08) {
+                detectedGesture = 'fist';
+                // 握拳缩小相机距离
+                targetCameraDistance = Math.max(CONFIG.CAMERA.MIN_DISTANCE, targetCameraDistance - CONFIG.CAMERA.ZOOM_SPEED * 5);
+            }
+            // 五指张开：所有手指都伸直（距离手腕远）
+            else if (thumbDist > 0.1 && indexDist > 0.1 && middleDist > 0.1 && 
+                     ringDist > 0.1 && pinkyDist > 0.1) {
+                detectedGesture = 'open';
+                // 张手扩大相机距离
+                targetCameraDistance = Math.min(CONFIG.CAMERA.MAX_DISTANCE, targetCameraDistance + CONFIG.CAMERA.ZOOM_SPEED * 5);
+            }
+            // 旋转手势：手移动
+            else if (handSpeed > 0.01) {
+                detectedGesture = 'rotate';
+                // 旋转已经在updateHandMetrics中处理
+            }
+
+            updateGestureDisplay(detectedGesture);
+        }
+
+        function updateHandMetrics() {
+            if (!handLandmarks) return;
+
+            // 手部中心
+            const center = handLandmarks[9];
+            const currentX = (center.x - 0.5) * 8;
+            const currentY = -(center.y - 0.5) * 6;
+            const currentZ = (center.z + 0.5) * 4;
+
+            // 计算手速（用于旋转）
+            if (prevHandPos.x !== 0) {
+                const dx = currentX - prevHandPos.x;
+                const dy = currentY - prevHandPos.y;
+                const dz = currentZ - prevHandPos.z;
+                
+                handVelocity.x = dx;
+                handVelocity.y = dy;
+                handVelocity.z = dz;
+                
+                handSpeed = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                // 根据手速调整相机旋转
+                if (handSpeed > 0.01) {
+                    targetCameraRotation.y += dx * CONFIG.CAMERA.ROTATION_SPEED * 10;
+                    targetCameraRotation.x += dy * CONFIG.CAMERA.ROTATION_SPEED * 5;
+                    
+                    // 限制X轴旋转
+                    targetCameraRotation.x = Math.max(-Math.PI/3, Math.min(Math.PI/3, targetCameraRotation.x));
+                }
+            }
+
+            prevHandPos.x = currentX;
+            prevHandPos.y = currentY;
+            prevHandPos.z = currentZ;
+        }
+
+        // ==================== 自动模式 ====================
+        function startAutoMode(reason) {
+            console.log('启动自动模式:', reason);
+            updateStatus('自动模式 - ' + reason, false);
+            completeStep('gesture');
+            
+            setTimeout(() => {
+                hideProgress();
+            }, 500);
+
+            // 每10秒自动调整一次相机
+            const autoCycle = () => {
+                if (handLandmarks) return; // 如果有手势，不自动运行
+                
+                // 随机调整距离
+                const randomDistance = CONFIG.CAMERA.MIN_DISTANCE + Math.random() * (CONFIG.CAMERA.MAX_DISTANCE - CONFIG.CAMERA.MIN_DISTANCE);
+                targetCameraDistance = randomDistance;
+                
+                // 随机旋转
+                targetCameraRotation.y += Math.random() * Math.PI * 2 - Math.PI;
+                targetCameraRotation.x += Math.random() * 0.5 - 0.25;
+                targetCameraRotation.x = Math.max(-Math.PI/3, Math.min(Math.PI/3, targetCameraRotation.x));
+            };
+
+            // 每8秒自动切换一次
+            setInterval(autoCycle, 8000);
+            
+            // 立即开始
+            setTimeout(autoCycle, 2000);
+        }
+
+        // ==================== 动画循环 ====================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 计算时间差
+            const now = performance.now();
+            const deltaTime = (now - lastFrameTime) / 1000;
+            lastFrameTime = now;
+
+            // 更新物理
+            updatePhysics(deltaTime);
+
+            // 更新相机
+            updateCameraPosition();
+
+            // 渲染
+            renderer.render(scene, camera);
+
+            // 更新FPS
+            updateFPS(now);
+        }
+
+        // ==================== UI 更新 ====================
+        function updateStatus(text, active) {
+            const statusEl = document.getElementById('gestureStatus');
+            const indicator = document.getElementById('statusIndicator');
+
+            if (statusEl) {
+                statusEl.textContent = text;
+                statusEl.style.color = active ? '#00ff00' : '#ffaa00';
+            }
+
+            if (indicator) {
+                indicator.className = active ? 'status-indicator' : 'status-indicator inactive';
+            }
+        }
+
+        function updateGestureDisplay(gesture) {
+            const statusEl = document.getElementById('gestureStatus');
+            const iconEl = document.getElementById('gestureIcon');
+            const nameEl = document.getElementById('gestureName');
+
+            if (!gesture) {
+                if (statusEl && !statusEl.textContent.includes('自动')) {
+                    statusEl.innerHTML = '<span class="camera-status active"></span>检测中...';
+                }
+                iconEl.textContent = '✋';
+                nameEl.textContent = '等待手势...';
+                return;
+            }
+
+            const gestureInfo = {
+                'fist': { icon: '✊', name: '握拳缩小', color: '#ff4444' },
+                'open': { icon: '✋', name: '张手放大', color: '#00ff88' },
+                'rotate': { icon: '🔄', name: '旋转星球', color: '#ff8c00' }
+            };
+
+            const info = gestureInfo[gesture];
+            if (info) {
+                if (statusEl && !statusEl.textContent.includes('自动')) {
+                    statusEl.innerHTML = `<span class="camera-status active"></span>${info.name}`;
+                    statusEl.style.color = info.color;
+                }
+                iconEl.textContent = info.icon;
+                nameEl.textContent = info.name;
+            }
+        }
+
+        function updateFPS(now) {
+            frameCount++;
+            
+            if (now - fpsUpdateTimer >= 1000) {
+                fps = Math.round((frameCount * 1000) / (now - fpsUpdateTimer));
+                const fpsEl = document.getElementById('fpsCounter');
+                if (fpsEl) {
+                    fpsEl.textContent = `${fps} FPS`;
+                    fpsEl.style.color = fps >= 50 ? '#00ff00' : fps >= 30 ? '#ffff00' : '#ff0000';
+                }
+                frameCount = 0;
+                fpsUpdateTimer = now;
+            }
+        }
+
+        function showLoading(text) {
+            const loading = document.getElementById('loadingIndicator');
+            const textEl = document.getElementById('loadingText');
+            textEl.textContent = text;
+            loading.style.display = 'block';
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loadingIndicator');
+            loading.style.display = 'none';
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('stateToast');
+            toast.textContent = message;
+            toast.className = isError ? 'error show' : 'show';
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // ==================== 窗口调整 ====================
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ==================== UI 控制函数 ====================
+
+        // 全屏切换
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    showToast('进入全屏模式');
+                }).catch(() => {
+                    showToast('全屏请求失败', true);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    showToast('退出全屏模式');
+                });
+            }
+        }
+
+        // UI显示/隐藏
+        let uiVisible = true;
+        function toggleUI() {
+            uiVisible = !uiVisible;
+            const elements = [
+                'infoPanel', 'gestureIndicator', 'topButtons', 
+                'controlPanel', 'infoTooltip', 'mainTitle'
+            ];
+            
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.opacity = uiVisible ? '1' : '0';
+                    el.style.pointerEvents = uiVisible ? 'auto' : 'none';
+                }
+            });
+            
+            showToast(uiVisible ? 'UI显示' : 'UI隐藏');
+        }
+
+        // 重置相机
+        function resetCamera() {
+            targetCameraDistance = CONFIG.CAMERA.DEFAULT_DISTANCE;
+            targetCameraRotation = { x: 0, y: 0 };
+            showToast('相机已重置');
+        }
+
+        // 切换自动旋转
+        function toggleAutoRotate() {
+            autoRotateEnabled = !autoRotateEnabled;
+            showToast(autoRotateEnabled ? '自动旋转已启用' : '自动旋转已禁用');
+        }
+
+        // 切换星环发光
+        function toggleStarGlow() {
+            starGlowEnabled = !starGlowEnabled;
+            if (ringParticles) {
+                ringParticles.material.opacity = starGlowEnabled ? 0.8 : 0.3;
+            }
+            showToast(starGlowEnabled ? '星环发光已启用' : '星环发光已禁用');
+        }
+
+        // 切换星球脉动
+        function togglePlanetPulse() {
+            planetPulseEnabled = !planetPulseEnabled;
+            showToast(planetPulseEnabled ? '星球脉动已启用' : '星球脉动已禁用');
+        }
+
+        // 拖拽标题功能
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        function initDraggableTitle() {
+            const title = document.getElementById('mainTitle');
+            
+            title.addEventListener('mousedown', startDrag);
+            title.addEventListener('touchstart', startDrag, { passive: false });
+            
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+            
+            function startDrag(e) {
+                isDragging = true;
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                const rect = title.getBoundingClientRect();
+                
+                dragOffset.x = clientX - rect.left;
+                dragOffset.y = clientY - rect.top;
+                
+                e.preventDefault();
+            }
+            
+            function drag(e) {
+                if (!isDragging) return;
+                
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                
+                const x = clientX - dragOffset.x;
+                const y = clientY - dragOffset.y;
+                
+                title.style.left = x + 'px';
+                title.style.top = y + 'px';
+                title.style.transform = 'none';
+                title.style.right = 'auto';
+                title.style.bottom = 'auto';
+                
+                e.preventDefault();
+            }
+            
+            function endDrag() {
+                isDragging = false;
+            }
+        }
+
+        // ==================== 启动应用 ====================
+        window.addEventListener('load', () => {
+            init();
+            // 延迟初始化拖拽，确保DOM完全加载
+            setTimeout(initDraggableTitle, 100);
+        });
+    </script>
+</body>
+</html>
