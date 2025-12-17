@@ -113,6 +113,41 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .loader-text { color: #d4af37; font-size: 12px; letter-spacing: 4px; margin-top: 25px; font-family: 'Cinzel', serif; opacity: 0.8; }
         
+        /* 进度条样式 - 新增 */
+        .progress-container {
+            width: 300px;
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #d4af37, #fceea7);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        }
+        .progress-text {
+            color: #d4af37;
+            font-size: 11px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+        .progress-step {
+            color: #888;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 5px;
+            letter-spacing: 0.5px;
+        }
+        
         /* Debug Info: Bottom Position (Default) */
         #debug-info { 
             position: absolute; 
@@ -153,7 +188,17 @@
     </script>
 </head>
 <body>
-    <div id="loader"><div class="spinner"></div><div class="loader-text">SYSTEM INITIALIZING</div></div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">SYSTEM INITIALIZING</div>
+        <div class="progress-container" id="progress-container">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">0%</div>
+            <div class="progress-step" id="progress-step">正在初始化...</div>
+        </div>
+    </div>
     <div id="canvas-container"></div>
     <div id="title-container"><h1 id="display-line1" class="title-line">Merry</h1><h1 id="display-line2" class="title-line">Christmas</h1></div>
     <div id="ui-layer">
@@ -222,20 +267,91 @@
         function dataURLtoBlob(dataurl) { var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n); while(n--){ u8arr[n] = bstr.charCodeAt(n); } return new Blob([u8arr], {type:mime}); }
 
         let scene, camera, renderer, composer, mainGroup, particleSystem=[], photoMeshGroup=new THREE.Group(), snowInstancedMesh, snowDummy=new THREE.Object3D(), snowData=[], clock=new THREE.Clock(), handLandmarker, videoElement, caneTexture, bgmAudio=new Audio(); bgmAudio.loop=true; let isMusicPlaying=false;
+        
+        // 进度管理器
+        const progressManager = {
+            totalSteps: 8,
+            currentStep: 0,
+            container: null,
+            barFill: null,
+            text: null,
+            stepText: null,
+            
+            init() {
+                this.container = document.getElementById('progress-container');
+                this.barFill = document.getElementById('progress-bar-fill');
+                this.text = document.getElementById('progress-text');
+                this.stepText = document.getElementById('progress-step');
+                this.currentStep = 0;
+                if(this.container) this.container.style.display = 'block';
+                this.update(0, '开始初始化...');
+            },
+            
+            update(step, message) {
+                this.currentStep = step;
+                const percentage = Math.round((step / this.totalSteps) * 100);
+                
+                if(this.barFill) this.barFill.style.width = percentage + '%';
+                if(this.text) this.text.textContent = percentage + '%';
+                if(this.stepText) this.stepText.textContent = message;
+            },
+            
+            next(message) {
+                this.currentStep++;
+                this.update(this.currentStep, message);
+            },
+            
+            complete() {
+                if(this.container) {
+                    this.update(this.totalSteps, '初始化完成！');
+                    setTimeout(() => {
+                        this.container.style.display = 'none';
+                    }, 500);
+                }
+            }
+        };
 
         async function init() {
+            // 显示进度条
+            progressManager.init();
+            
             if (EXPORTED_DATA) {
                 document.body.classList.add('exported-mode');
                 CONFIG = EXPORTED_DATA.config;
                 setTimeout(() => applyTextConfig(EXPORTED_DATA.text.fontKey, EXPORTED_DATA.text.line1, EXPORTED_DATA.text.line2, EXPORTED_DATA.text.size, EXPORTED_DATA.text.color), 100);
             }
 
-            initThree(); setupEnvironment(); setupLights(); createTextures(); createParticles(); createDust(); createSnow(); createDefaultPhotos(); setupPostProcessing(); setupEvents(); animate();
+            // 按步骤初始化，显示进度
+            progressManager.update(1, '初始化3D引擎...');
+            initThree();
+            
+            progressManager.next('设置环境...');
+            setupEnvironment();
+            
+            progressManager.next('添加光源...');
+            setupLights();
+            
+            progressManager.next('创建纹理...');
+            createTextures();
+            
+            progressManager.next('生成粒子...');
+            createParticles();
+            createDust();
+            createSnow();
+            
+            progressManager.next('创建默认照片...');
+            createDefaultPhotos();
+            
+            progressManager.next('设置后期处理...');
+            setupPostProcessing();
+            setupEvents();
+            animate();
             
             const loader = document.getElementById('loader');
             if(loader) { loader.style.opacity = 0; setTimeout(() => loader.remove(), 500); }
 
             try {
+                progressManager.next('加载本地数据...');
                 await initDB();
                 if(!EXPORTED_DATA) loadTextConfig();
                 const ps=await loadPhotosFromDB(); 
@@ -244,9 +360,15 @@
                 if(ms){ bgmAudio.src=URL.createObjectURL(ms); if(EXPORTED_DATA) { document.body.addEventListener('click', () => { if(!isMusicPlaying) toggleMusicPlay(); }, { once: true }); } updatePlayBtnUI(false); } 
             } catch(e){console.warn(e);}
             
-            initMediaPipe(); 
+            progressManager.next('初始化手势识别...');
+            await initMediaPipe(); 
+            
+            progressManager.next('完成最后设置...');
             initDraggableTitle();
             setMode('TREE');
+            
+            // 完成进度条
+            progressManager.complete();
         }
 
         function initDraggableTitle() { const t=document.getElementById('title-container'); let d=false,o={x:0,y:0}; t.onmousedown=e=>{d=true;const r=t.getBoundingClientRect();o.x=e.clientX-r.left;o.y=e.clientY-r.top;t.style.transform='none';t.style.left=r.left+'px';t.style.top=r.top+'px'}; window.onmousemove=e=>{if(d){t.style.left=(e.clientX-o.x)+'px';t.style.top=(e.clientY-o.y)+'px'}}; window.onmouseup=()=>d=false; }
