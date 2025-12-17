@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebAR 粒子互动系统</title>
+    <title>WebAR 粒子互动系统 - 16000流体粒子</title>
     <style>
         body {
             margin: 0;
@@ -12,7 +12,9 @@
             width: 100vw;
             height: 100vh;
             background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+        
         #canvasContainer {
             position: fixed;
             top: 0;
@@ -21,839 +23,878 @@
             height: 100%;
             z-index: 1;
         }
+        
         #infoPanel {
             position: fixed;
             top: 10px;
             left: 10px;
             color: white;
-            font-family: Arial, sans-serif;
             font-size: 14px;
             z-index: 100;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            min-width: 200px;
         }
+        
+        #infoPanel div {
+            margin: 5px 0;
+            font-weight: 500;
+        }
+        
+        #gestureStatus {
+            color: #00ffff;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+        
+        #fpsCounter {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        
         #loadingIndicator {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             color: cyan;
-            font-family: Arial, sans-serif;
             font-size: 24px;
             z-index: 1000;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+        
+        #loadingIndicator button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid cyan;
+            color: cyan;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        #loadingIndicator button:hover {
+            background: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #00ff00;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        
+        .status-indicator.inactive {
+            background: #ff0000;
+            box-shadow: 0 0 5px #ff0000;
         }
     </style>
 </head>
 <body>
     <div id="canvasContainer"></div>
     <div id="infoPanel">
-        <div>手势状态: <span id="gestureStatus">初始化中...</span></div>
-        <div>粒子数量: 16000</div>
+        <div><span class="status-indicator" id="statusIndicator"></span>状态: <span id="gestureStatus">初始化中...</span></div>
+        <div>粒子数量: <span style="color: #00ffff;">16,000</span></div>
+        <div>物理模型: <span style="color: #ffff00;">速度+加速度</span></div>
         <div>帧率: <span id="fpsCounter">0</span> FPS</div>
+        <div style="margin-top: 8px; font-size: 12px; opacity: 0.7;">
+            💡 张手/挥动/推拉摄像头体验交互
+        </div>
     </div>
-    <div id="loadingIndicator">正在请求摄像头权限...</div>
+    <div id="loadingIndicator">正在初始化系统...</div>
 
-    <!-- 引入 Three.js 和相关库 -->
+    <!-- Three.js - 使用 unpkg 确保稳定加载 -->
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
     
-    <!-- 引入 MediaPipe 库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+    <!-- MediaPipe Hands - 使用 unpkg 确保稳定加载 -->
+    <script src="https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.js"></script>
+    <script src="https://unpkg.com/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+    <script src="https://unpkg.com/@mediapipe/drawing_utils@0.3.1620248357/drawing_utils.js"></script>
 
     <script>
-        // 全局变量
-        let scene, camera, renderer;
-        let particles;
-        let particlePositions, particleVelocities, particleAccelerations;
-        let particleGeometry, particleMaterial;
-        const PARTICLE_COUNT = 8000;
-        const PARTICLE_SIZE = 3.0;
+        // ==================== 核心配置 ====================
+        const CONFIG = {
+            PARTICLE_COUNT: 16000,
+            PARTICLE_COLOR: 0x00FFFF,
+            PARTICLE_SIZE: 2.5,
+            PHYSICS: {
+                DAMPING: 0.94,
+                ATTRACTION: 0.08,
+                EXPLOSION_FORCE: 3.5,
+                STORM_FORCE: 8.0,
+                MAX_VELOCITY: 12.0
+            },
+            GESTURES: {
+                OPEN: 'open',
+                SCISSORS: 'scissors',
+                FIST: 'fist',
+                POINT: 'point',
+                THUMBSUP: 'thumbsUp'
+            },
+            AUTO_SWITCH_INTERVAL: 5000
+        };
+
+        // ==================== 全局变量 ====================
+        let scene, camera, renderer, particles;
+        let particleSystem;
+        let cameraVideo, hands, cameraObj;
         
-        // 手势相关
-        let cameraVideo = null;
-        let hands = null;
+        // 物理状态
+        let currentPosition, targetPosition, velocity, acceleration;
+        
+        // 手势状态
         let currentGesture = 'open';
-        let lastGesture = 'open';
-        let gestureTransitionTime = 0;
-        
-        // 物理参数
-        const accelerationFactor = 0.02;
-        const dampingFactor = 0.95;
-        const explosionForce = 2.0;
-        
-        // 手部追踪数据
         let handLandmarks = null;
         let handVelocity = { x: 0, y: 0, z: 0 };
-        let prevHandPosition = { x: 0, y: 0, z: 0 };
+        let prevHandPos = { x: 0, y: 0, z: 0 };
         let handSpeed = 0;
-        let palmSize = 0;
+        let palmArea = 0;
         
-        // 形状目标点
-        let targetPositions = [];
-        let textShapePoints = [];
-        
-        // 性能监控
+        // 交互状态
+        let isCameraActive = false;
+        let autoShapeTimer = 0;
         let lastFrameTime = 0;
         let frameCount = 0;
-        let lastFpsUpdate = 0;
+        let fpsUpdateTimer = 0;
+        let fps = 0;
         
-        // 自动形状切换
-        let autoShapeTimer = 0;
-        const AUTO_SHAPE_INTERVAL = 5000;
-        const shapes = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
-        let currentShapeIndex = 0;
+        // 文字形状数据
+        let textPoints = [];
         
-        // 初始化当前形状索引
-        currentShapeIndex = shapes.indexOf(currentGesture);
-        
-        // FPS样本
-        let frameTimeSamples = [];
-        const MAX_SAMPLES = 60;
-        
-        // 初始化函数
+        // ==================== 初始化系统 ====================
         function init() {
-            // 创建场景
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000000);
+            showLoading('正在创建3D场景...');
             
-            // 创建相机
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
+            // 1. 创建Three.js场景
+            createScene();
             
-            // 创建渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.getElementById('canvasContainer').appendChild(renderer.domElement);
+            // 2. 创建粒子系统
+            createParticleSystem();
             
-            // 初始化粒子系统
-            initParticles();
+            // 3. 生成文字形状数据
+            generateTextShape();
             
-            // 创建文字形状点
-            createTextShapePoints();
-            
-            // 设置事件监听器
-            window.addEventListener('resize', onWindowResize);
-            
-            // 开始动画循环
+            // 4. 开始动画循环
             animate();
             
-            // 请求摄像头权限
+            // 5. 请求摄像头权限
             setTimeout(() => {
-                requestCameraPermission();
+                initCameraAndHands();
             }, 1500);
         }
         
-        // 初始化粒子系统
-        function initParticles() {
+        // ==================== 场景创建 ====================
+        function createScene() {
+            // 场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            // 相机
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 8;
+            
+            // 渲染器
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvasContainer').appendChild(renderer.domElement);
+            
+            // 窗口调整
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        // ==================== 粒子系统创建 ====================
+        function createParticleSystem() {
+            const count = CONFIG.PARTICLE_COUNT;
+            
             // 创建几何体
-            particleGeometry = new THREE.BufferGeometry();
+            const geometry = new THREE.BufferGeometry();
             
-            // 创建粒子位置、速度和加速度数组
-            particlePositions = new Float32Array(PARTICLE_COUNT * 3);
-            particleVelocities = new Float32Array(PARTICLE_COUNT * 3);
-            particleAccelerations = new Float32Array(PARTICLE_COUNT * 3);
-            targetPositions = new Float32Array(PARTICLE_COUNT * 3);
+            // 分配数组
+            currentPosition = new Float32Array(count * 3);
+            targetPosition = new Float32Array(count * 3);
+            velocity = new Float32Array(count * 3);
+            acceleration = new Float32Array(count * 3);
             
-            // 初始化粒子位置为球形分布
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            // 初始位置：球形分布
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                // 初始位置设为球形分布
-                const radius = 1.5;
+                // 球形分布
+                const radius = 2.0;
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos(2 * Math.random() - 1);
+                
                 const x = radius * Math.sin(phi) * Math.cos(theta);
                 const y = radius * Math.sin(phi) * Math.sin(theta);
                 const z = radius * Math.cos(phi);
                 
-                particlePositions[i3] = x;
-                particlePositions[i3 + 1] = y;
-                particlePositions[i3 + 2] = z;
+                currentPosition[i3] = x;
+                currentPosition[i3 + 1] = y;
+                currentPosition[i3 + 2] = z;
                 
-                // 目标位置初始也为球形
-                targetPositions[i3] = x;
-                targetPositions[i3 + 1] = y;
-                targetPositions[i3 + 2] = z;
+                targetPosition[i3] = x;
+                targetPosition[i3 + 1] = y;
+                targetPosition[i3 + 2] = z;
                 
-                // 初始化速度和加速度为0
-                particleVelocities[i3] = 0;
-                particleVelocities[i3 + 1] = 0;
-                particleVelocities[i3 + 2] = 0;
-                particleAccelerations[i3] = 0;
-                particleAccelerations[i3 + 1] = 0;
-                particleAccelerations[i3 + 2] = 0;
+                velocity[i3] = (Math.random() - 0.5) * 0.5;
+                velocity[i3 + 1] = (Math.random() - 0.5) * 0.5;
+                velocity[i3 + 2] = (Math.random() - 0.5) * 0.5;
             }
             
-            // 设置几何体属性
-            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            geometry.setAttribute('position', new THREE.BufferAttribute(currentPosition, 3));
             
-            // 创建材质
-            particleMaterial = new THREE.PointsMaterial({
-                color: 0x00FFFF, // 青色
-                size: PARTICLE_SIZE,
+            // 材质
+            const material = new THREE.PointsMaterial({
+                color: CONFIG.PARTICLE_COLOR,
+                size: CONFIG.PARTICLE_SIZE,
                 transparent: true,
                 opacity: 0.8,
-                sizeAttenuation: true
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
             });
             
             // 创建粒子系统
-            particles = new THREE.Points(particleGeometry, particleMaterial);
+            particles = new THREE.Points(geometry, material);
             scene.add(particles);
+            
+            // 创建物理管理器
+            particleSystem = {
+                geometry: geometry,
+                count: count,
+                state: 'sphere', // 当前状态
+                transition: 0 // 过渡进度
+            };
         }
         
-        // 创建文字形状点 ("我是 Mok")
-        function createTextShapePoints() {
-            // 这里我们模拟一些文字形状的点
-            // 在实际应用中，可以使用Canvas测量文字并获取点阵
+        // ==================== 文字形状生成 ====================
+        function generateTextShape() {
+            // 创建离屏Canvas生成文字
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 400;
+            canvas.height = 200;
             
-            // 为演示目的，我们创建几个字母的简单表示
-            textShapePoints = [];
+            // 绘制文字
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 60px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('我是 Mok', canvas.width / 2, canvas.height / 2);
             
-            // 创建"M"形状的点
-            for (let i = 0; i < 3000; i++) {
-                const t = i / 3000;
-                const x = (t - 0.5) * 4 - 1.5;
-                const y = Math.abs(Math.sin(t * Math.PI * 2)) * 2 - 1;
-                const z = (Math.random() - 0.5) * 0.5;
-                textShapePoints.push(x, y, z);
-            }
+            // 获取像素数据
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
             
-            // 创建"o"形状的点
-            for (let i = 0; i < 2000; i++) {
-                const angle = (i / 2000) * Math.PI * 2;
-                const radius = 0.5;
-                const x = Math.cos(angle) + 0.5;
-                const y = Math.sin(angle);
-                const z = (Math.random() - 0.5) * 0.5;
-                textShapePoints.push(x, y, z);
-            }
+            // 采样文字点
+            textPoints = [];
+            const step = 2; // 采样步长
             
-            // 创建"k"形状的点
-            for (let i = 0; i < 3000; i++) {
-                const t = i / 3000;
-                let x, y, z;
-                
-                if (i < 1500) {
-                    // 竖线
-                    x = 1.5;
-                    y = (t * 2 - 0.5) * 2;
-                    z = (Math.random() - 0.5) * 0.5;
-                } else {
-                    // 斜线
-                    const t2 = (t - 0.5) * 2;
-                    x = 1.5 + t2 * 1.5;
-                    y = -t2 * 1.5;
-                    z = (Math.random() - 0.5) * 0.5;
-                }
-                
-                textShapePoints.push(x, y, z);
-            }
-            
-            // 补充到16000个点
-            while (textShapePoints.length < PARTICLE_COUNT * 3) {
-                textShapePoints.push(
-                    (Math.random() - 0.5) * 4,
-                    (Math.random() - 0.5) * 2,
-                    (Math.random() - 0.5) * 0.5
-                );
-            }
-        }
-        
-        // 检查是否在安全上下文中运行（HTTPS）
-        function checkSecureContext() {
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                document.getElementById('gestureStatus').textContent = '⚠️ 需要HTTPS环境';
-                document.getElementById('loadingIndicator').style.display = 'block';
-                document.getElementById('loadingIndicator').innerHTML = `
-                    <div style="text-align: center; max-width: 80vw;">
-                        <h3>🔒 安全要求</h3>
-                        <p>此应用需要在HTTPS环境下运行才能访问摄像头。</p>
-                        <p>请在本地服务器上运行或使用HTTPS访问。</p>
-                        <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
-                    </div>
-                `;
-                console.error('摄像头访问需要安全上下文（HTTPS）');
-                return false;
-            }
-            return true;
-        }
-        
-        // 检查MediaPipe库是否可用
-        function checkMediaPipeLibraries() {
-            return (typeof window.Hands !== 'undefined') && (typeof window.Camera !== 'undefined');
-        }
-        
-        // 等待MediaPipe库加载完成
-        function waitForMediaPipeLibraries() {
-            return new Promise((resolve) => {
-                let attempts = 0;
-                const maxAttempts = 100; // 最多等待10秒
-                
-                const check = () => {
-                    attempts++;
-                    if (checkMediaPipeLibraries() || attempts >= maxAttempts) {
-                        resolve();
-                    } else {
-                        setTimeout(check, 100);
+            for (let y = 0; y < canvas.height; y += step) {
+                for (let x = 0; x < canvas.width; x += step) {
+                    const index = (y * canvas.width + x) * 4;
+                    if (data[index] > 128) { // 白色像素
+                        // 映射到3D空间
+                        const px = (x - canvas.width / 2) * 0.02;
+                        const py = -(y - canvas.height / 2) * 0.02;
+                        const pz = (Math.random() - 0.5) * 0.5;
+                        textPoints.push({ x: px, y: py, z: pz });
                     }
-                };
-                
-                check();
-            });
-        }
-        
-        // 请求摄像头权限
-        async function requestCameraPermission() {
-            // 检查安全上下文
-            if (!checkSecureContext()) {
-                // 如果不满足安全要求，启动自动模式作为演示
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('gestureStatus').textContent = '自动模式: 张手';
-                return;
+                }
             }
             
-            // 检查浏览器支持
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                // 浏览器不支持，启动自动模式
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('gestureStatus').textContent = '自动模式: 张手';
-                return;
-            }
-            
-            // 等待MediaPipe库加载
-            await waitForMediaPipeLibraries();
-            
-            // 请求摄像头
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user' } 
+            // 如果点太少，补充随机点
+            while (textPoints.length < 3000) {
+                textPoints.push({
+                    x: (Math.random() - 0.5) * 4,
+                    y: (Math.random() - 0.5) * 2,
+                    z: (Math.random() - 0.5) * 0.5
                 });
-                
-                document.getElementById('loadingIndicator').style.display = 'none';
-                
-                // 尝试初始化手势识别
-                if (checkMediaPipeLibraries()) {
-                    await initHandsDetection(stream);
-                    document.getElementById('gestureStatus').textContent = '手势识别已就绪';
-                } else {
-                    // 基础模式
-                    initBasicCameraDisplay(stream);
-                    document.getElementById('gestureStatus').textContent = '摄像头已连接（基础模式）';
-                }
-                
-            } catch (error) {
-                // 摄像头访问失败，启动自动模式
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('gestureStatus').textContent = '自动模式: 张手';
             }
         }
         
-        // 显示错误信息
-        function showError(message) {
-            document.getElementById('gestureStatus').textContent = '错误: ' + message;
-            document.getElementById('loadingIndicator').style.display = 'block';
-            document.getElementById('loadingIndicator').innerHTML = `
-                <div style="text-align: center; max-width: 80vw;">
-                    <h3>⚠️ 错误</h3>
-                    <p>${message}</p>
-                    <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 刷新页面</button>
-                </div>
-            `;
-        }
-        
-        // 请求基本摄像头访问（无手势识别）
-        function requestBasicCameraAccess() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-                .then(stream => {
-                    document.getElementById('gestureStatus').textContent = '摄像头已连接（基础模式）';
-                    document.getElementById('loadingIndicator').style.display = 'none';
-                    initBasicCameraDisplay(stream);
-                })
-                .catch(error => {
-                    showError('无法访问摄像头: ' + error.message);
-                });
-        }
-        
-        // 初始化基本摄像头显示
-        function initBasicCameraDisplay(stream) {
-            // 创建视频元素
-            const video = document.createElement('video');
-            video.style.position = 'fixed';
-            video.style.top = '0';
-            video.style.left = '0';
-            video.style.width = '100%';
-            video.style.height = '100%';
-            video.style.objectFit = 'cover';
-            video.style.zIndex = '0';
-            video.setAttribute('playsinline', true);
-            video.muted = true;
-            document.body.appendChild(video);
+        // ==================== 形态计算函数 ====================
+        function updateTargetsForGesture(gesture) {
+            const count = CONFIG.PARTICLE_COUNT;
             
-            // 绑定视频流
-            video.srcObject = stream;
-            video.play();
-        }
-        
-        // 初始化手势检测
-        async function initHandsDetection(stream) {
-            // 创建视频元素
-            cameraVideo = document.createElement('video');
-            cameraVideo.style.display = 'none';
-            cameraVideo.setAttribute('playsinline', true);
-            cameraVideo.muted = true;
-            document.body.appendChild(cameraVideo);
-            
-            cameraVideo.srcObject = stream;
-            
-            // 等待视频元数据加载
-            await new Promise((resolve) => {
-                cameraVideo.onloadedmetadata = resolve;
-            });
-            
-            // 初始化Hands
-            const hands = new window.Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.3.1675469240/${file}`;
-                }
-            });
-            
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5,
-                selfieMode: true
-            });
-            
-            hands.onResults(onHandsResults);
-            
-            // 初始化摄像头
-            const camera = new window.Camera(cameraVideo, {
-                onFrame: async () => {
-                    await hands.send({image: cameraVideo});
-                },
-                width: 1280,
-                height: 720
-            });
-            
-            camera.start();
-        }
-        
-        // 处理手势检测结果
-        function onHandsResults(results) {
-            try {
-                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                    handLandmarks = results.multiHandLandmarks[0];
-                    detectGesture();
-                    calculateHandMetrics();
-                } else {
-                    handLandmarks = null;
-                    handSpeed = 0;
-                    palmSize = 0;
-                }
-            } catch (error) {
-                console.error('处理手势结果时出错:', error);
-                // 出错时保持之前的状态
-            }
-        }
-        
-        // 手势识别
-        function detectGesture() {
-            if (!handLandmarks) return;
-            
-            // 计算关键点距离用于手势识别
-            const thumbTip = handLandmarks[4];
-            const indexTip = handLandmarks[8];
-            const middleTip = handLandmarks[12];
-            const ringTip = handLandmarks[16];
-            const pinkyTip = handLandmarks[20];
-            
-            const wrist = handLandmarks[0];
-            
-            // 计算手指伸展程度
-            const thumbDistance = distance(thumbTip, wrist);
-            const indexDistance = distance(indexTip, wrist);
-            const middleDistance = distance(middleTip, wrist);
-            const ringDistance = distance(ringTip, wrist);
-            const pinkyDistance = distance(pinkyTip, wrist);
-            
-            // 计算手指间的距离
-            const thumbIndexDist = distance(thumbTip, indexTip);
-            const indexMiddleDist = distance(indexTip, middleTip);
-            
-            // 识别手势
-            if (thumbIndexDist > 0.1 && indexMiddleDist > 0.1 && 
-                indexDistance > middleDistance && indexDistance > ringDistance && indexDistance > pinkyDistance &&
-                thumbDistance > 0.3) {
-                // 食指手势（其他手指弯曲，只有食指伸出）
-                setGesture('point');
-            } else if (thumbIndexDist < 0.08 && Math.abs(indexMiddleDist - 0.15) < 0.05) {
-                // 剪刀手手势（食指和中指分开）
-                setGesture('scissors');
-            } else if (thumbDistance < 0.08 && indexDistance < 0.08 && 
-                       middleDistance < 0.08 && ringDistance < 0.08 && pinkyDistance < 0.08) {
-                // 握拳手势（所有手指弯曲）
-                setGesture('fist');
-            } else if (thumbDistance > 0.1 && indexDistance > 0.1 && 
-                       middleDistance > 0.1 && ringDistance > 0.1 && pinkyDistance > 0.1 &&
-                       thumbIndexDist > 0.1) {
-                // 张手手势（所有手指伸开）
-                setGesture('open');
-            } else if (thumbDistance > 0.15 && indexDistance < 0.1 && 
-                       middleDistance < 0.1 && ringDistance < 0.1 && pinkyDistance < 0.1) {
-                // 竖大拇指手势
-                setGesture('thumbsUp');
-            }
-        }
-        
-        // 设置手势并处理转换
-        function setGesture(gesture) {
-            if (currentGesture !== gesture) {
-                lastGesture = currentGesture;
-                currentGesture = gesture;
-                gestureTransitionTime = 0;
-                
-                // 更新UI
-                document.getElementById('gestureStatus').textContent = getGestureName(gesture);
-                
-                // 触发爆炸效果
-                triggerExplosion();
-            }
-        }
-        
-        // 获取手势名称
-        function getGestureName(gesture) {
-            switch(gesture) {
-                case 'open': return '张手';
-                case 'scissors': return '剪刀手';
-                case 'fist': return '握拳';
-                case 'point': return '食指';
-                case 'thumbsUp': return '竖大拇指';
-                default: return gesture;
-            }
-        }
-        
-        // 触发爆炸效果
-        function triggerExplosion() {
-            if (!particleVelocities) return;
-            
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const i3 = i * 3;
-                // 给每个粒子添加随机方向的爆炸力
-                particleVelocities[i3] += (Math.random() - 0.5) * explosionForce;
-                particleVelocities[i3 + 1] += (Math.random() - 0.5) * explosionForce;
-                particleVelocities[i3 + 2] += (Math.random() - 0.5) * explosionForce;
-            }
-        }
-        
-        // 计算手部指标
-        function calculateHandMetrics() {
-            if (!handLandmarks) return;
-            
-            // 计算手掌大小（通过拇指和小指根部的距离）
-            const thumbBase = handLandmarks[2];
-            const pinkyBase = handLandmarks[17];
-            palmSize = distance(thumbBase, pinkyBase);
-            
-            // 计算手部中心位置
-            const centerX = (handLandmarks[0].x + handLandmarks[9].x) / 2;
-            const centerY = (handLandmarks[0].y + handLandmarks[9].y) / 2;
-            const centerZ = (handLandmarks[0].z + handLandmarks[9].z) / 2;
-            
-            // 计算手部速度
-            const deltaX = centerX - prevHandPosition.x;
-            const deltaY = centerY - prevHandPosition.y;
-            const deltaZ = centerZ - prevHandPosition.z;
-            
-            handVelocity.x = deltaX;
-            handVelocity.y = deltaY;
-            handVelocity.z = deltaZ;
-            
-            handSpeed = Math.sqrt(deltaX*deltaX + deltaY*deltaY + deltaZ*deltaZ);
-            
-            prevHandPosition.x = centerX;
-            prevHandPosition.y = centerY;
-            prevHandPosition.z = centerZ;
-        }
-        
-        // 计算两点间距离
-        function distance(point1, point2) {
-            const dx = point1.x - point2.x;
-            const dy = point1.y - point2.y;
-            const dz = point1.z - point2.z;
-            return Math.sqrt(dx*dx + dy*dy + dz*dz);
-        }
-        
-        // 更新粒子目标位置
-        function updateTargetPositions() {
-            switch(currentGesture) {
-                case 'open':
-                    // 球形
+            switch (gesture) {
+                case 'open': // 球形
                     updateSphereTargets();
                     break;
-                case 'scissors':
-                    // 文字形状
+                case 'scissors': // 文字
                     updateTextTargets();
                     break;
-                case 'fist':
-                    // 圆环
+                case 'fist': // 圆环
                     updateRingTargets();
                     break;
-                case 'point':
-                    // 星形
+                case 'point': // 星形
                     updateStarTargets();
                     break;
-                case 'thumbsUp':
-                    // 爱心
+                case 'thumbsUp': // 爱心
                     updateHeartTargets();
                     break;
-                default:
-                    // 默认球形
-                    updateSphereTargets();
-                    break;
             }
         }
         
-        // 更新球形目标
         function updateSphereTargets() {
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const count = CONFIG.PARTICLE_COUNT;
+            const time = Date.now() * 0.001;
+            
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                // 根据粒子索引计算在球面上的位置
-                const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
-                const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
+                // 球形分布 + 动态脉动
+                const phi = Math.acos(-1 + (2 * i) / count);
+                const theta = Math.sqrt(count * Math.PI) * phi;
                 
-                const radius = 1.5 * (0.8 + 0.2 * Math.sin(Date.now() * 0.001 + i * 0.01));
-                targetPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-                targetPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                targetPositions[i3 + 2] = radius * Math.cos(phi);
+                // 添加动态效果
+                const pulse = 0.2 + 0.1 * Math.sin(time * 2 + i * 0.1);
+                const radius = 2.5 + pulse;
+                
+                targetPosition[i3] = radius * Math.sin(phi) * Math.cos(theta);
+                targetPosition[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                targetPosition[i3 + 2] = radius * Math.cos(phi);
             }
         }
         
-        // 更新文字目标
         function updateTextTargets() {
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const count = CONFIG.PARTICLE_COUNT;
+            const textCount = textPoints.length;
+            
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
-                if (i * 3 < textShapePoints.length) {
-                    targetPositions[i3] = textShapePoints[i3];
-                    targetPositions[i3 + 1] = textShapePoints[i3 + 1];
-                    targetPositions[i3 + 2] = textShapePoints[i3 + 2];
+                
+                if (i < textCount) {
+                    const point = textPoints[i];
+                    targetPosition[i3] = point.x;
+                    targetPosition[i3 + 1] = point.y;
+                    targetPosition[i3 + 2] = point.z;
+                } else {
+                    // 剩余粒子分布在文字周围
+                    const idx = i - textCount;
+                    const angle = (idx / (count - textCount)) * Math.PI * 2;
+                    const radius = 3.0;
+                    targetPosition[i3] = Math.cos(angle) * radius;
+                    targetPosition[i3 + 1] = Math.sin(angle) * radius * 0.3;
+                    targetPosition[i3 + 2] = (Math.random() - 0.5) * 0.5;
                 }
             }
         }
         
-        // 更新圆环目标
         function updateRingTargets() {
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const count = CONFIG.PARTICLE_COUNT;
+            const time = Date.now() * 0.001;
+            
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
-                const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
-                const radius = 1.2 + 0.3 * Math.sin(Date.now() * 0.002 + i * 0.02);
                 
-                targetPositions[i3] = Math.cos(angle) * radius;
-                targetPositions[i3 + 1] = Math.sin(angle * 2) * 0.3; // 添加波浪效果
-                targetPositions[i3 + 2] = Math.sin(angle) * radius;
+                const angle = (i / count) * Math.PI * 2;
+                const radius = 2.0 + 0.3 * Math.sin(time * 3 + i * 0.05);
+                
+                targetPosition[i3] = Math.cos(angle) * radius;
+                targetPosition[i3 + 1] = Math.sin(angle) * radius;
+                targetPosition[i3 + 2] = Math.sin(angle * 2 + time) * 0.5;
             }
         }
         
-        // 更新星形目标
         function updateStarTargets() {
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const count = CONFIG.PARTICLE_COUNT;
+            
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
-                const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
-                // 创建星形效果
-                const starFactor = Math.floor((i / PARTICLE_COUNT) * 5) % 2 === 0 ? 1 : 0.5;
-                const radius = 1.5 * starFactor;
                 
-                targetPositions[i3] = Math.cos(angle) * radius;
-                targetPositions[i3 + 1] = Math.sin(angle) * radius;
-                targetPositions[i3 + 2] = (Math.random() - 0.5) * 0.5;
+                const angle = (i / count) * Math.PI * 2;
+                const starPoints = 5;
+                const radius = 2.5;
+                
+                // 星形公式
+                const k = Math.floor(angle / (Math.PI / starPoints));
+                const r = (k % 2 === 0) ? radius : radius * 0.4;
+                const a = angle;
+                
+                targetPosition[i3] = Math.cos(a) * r;
+                targetPosition[i3 + 1] = Math.sin(a) * r;
+                targetPosition[i3 + 2] = (Math.random() - 0.5) * 0.3;
             }
         }
         
-        // 更新爱心目标
         function updateHeartTargets() {
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const count = CONFIG.PARTICLE_COUNT;
+            
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
-                const t = (i / PARTICLE_COUNT) * Math.PI * 2;
                 
-                // 心形方程
-                const scale = 1.2;
-                const x = scale * 1.5 * Math.pow(Math.sin(t), 3);
-                const y = scale * (1.3 * Math.cos(t) - 0.5 * Math.cos(2*t) - 0.2 * Math.cos(3*t) - 0.1 * Math.cos(4*t));
-                const z = (Math.random() - 0.5) * 0.3;
+                const t = (i / count) * Math.PI * 2;
                 
-                targetPositions[i3] = x;
-                targetPositions[i3 + 1] = y;
-                targetPositions[i3 + 2] = z;
+                // 心形参数方程
+                const scale = 1.8;
+                const x = scale * 16 * Math.pow(Math.sin(t), 3);
+                const y = scale * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                const z = (Math.random() - 0.5) * 0.5;
+                
+                targetPosition[i3] = x * 0.15;
+                targetPosition[i3 + 1] = y * 0.15;
+                targetPosition[i3 + 2] = z;
             }
         }
         
-        // 应用手势交互力
-        function applyHandInteraction() {
-            if (!handLandmarks || !particlePositions) return;
-            
-            // 获取手部屏幕坐标（归一化到-1到1）
-            const handScreenX = (handLandmarks[9].x - 0.5) * 2;
-            const handScreenY = -(handLandmarks[9].y - 0.5) * 2; // 翻转Y轴
-            
-            // 根据手掌大小调整影响范围
-            const influenceRadius = 0.5 + palmSize * 3;
-            
-            // 如果手速很快，产生风吹效果
-            if (handSpeed > 0.02) {
-                for (let i = 0; i < PARTICLE_COUNT; i++) {
-                    const i3 = i * 3;
-                    const dx = particlePositions[i3] - handScreenX * 3;
-                    const dy = particlePositions[i3 + 1] - handScreenY * 3;
-                    const distance = Math.sqrt(dx*dx + dy*dy);
-                    
-                    if (distance < influenceRadius) {
-                        // 计算排斥力
-                        const force = (1 - distance / influenceRadius) * handSpeed * 10;
-                        particleAccelerations[i3] -= handVelocity.x * force;
-                        particleAccelerations[i3 + 1] -= handVelocity.y * force;
-                    }
-                }
-            }
-            
-            // 根据手掌大小调整粒子系统缩放
-            const scale = 0.5 + palmSize * 5;
-            particles.scale.set(scale, scale, scale);
-        }
-        
-        // 更新粒子物理
+        // ==================== 物理引擎 ====================
         function updatePhysics(deltaTime) {
-            if (!particlePositions || !particleVelocities || !particleAccelerations) return;
+            const count = CONFIG.PARTICLE_COUNT;
+            const dt = Math.min(deltaTime, 0.05); // 限制最大时间步长
             
-            // 限制DeltaTime以防止极端值
-            deltaTime = Math.min(deltaTime, 0.05);
+            // 更新目标位置（基于当前手势）
+            updateTargetsForGesture(currentGesture);
             
-            // 更新目标位置
-            updateTargetPositions();
-            
-            // 应用手势交互
-            applyHandInteraction();
-            
-            // 优化：只更新部分粒子以提高性能
-            const updateStep = 2; // 只更新一半的粒子
-            for (let i = 0; i < PARTICLE_COUNT; i += updateStep) {
+            // 物理计算
+            for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                // 计算朝向目标的力
-                const dx = targetPositions[i3] - particlePositions[i3];
-                const dy = targetPositions[i3 + 1] - particlePositions[i3 + 1];
-                const dz = targetPositions[i3 + 2] - particlePositions[i3 + 2];
+                // 当前位置
+                const cx = currentPosition[i3];
+                const cy = currentPosition[i3 + 1];
+                const cz = currentPosition[i3 + 2];
                 
-                // 添加朝向目标的加速度
-                particleAccelerations[i3] += dx * accelerationFactor;
-                particleAccelerations[i3 + 1] += dy * accelerationFactor;
-                particleAccelerations[i3 + 2] += dz * accelerationFactor;
+                // 目标位置
+                const tx = targetPosition[i3];
+                const ty = targetPosition[i3 + 1];
+                const tz = targetPosition[i3 + 2];
+                
+                // 速度
+                let vx = velocity[i3];
+                let vy = velocity[i3 + 1];
+                let vz = velocity[i3 + 2];
+                
+                // 计算朝向目标的加速度
+                const dx = tx - cx;
+                const dy = ty - cy;
+                const dz = tz - cz;
+                
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
+                if (dist > 0.01) {
+                    // 吸引力
+                    const attraction = CONFIG.PHYSICS.ATTRACTION * Math.min(dist * 0.5, 2.0);
+                    acceleration[i3] = (dx / dist) * attraction;
+                    acceleration[i3 + 1] = (dy / dist) * attraction;
+                    acceleration[i3 + 2] = (dz / dist) * attraction;
+                } else {
+                    acceleration[i3] = 0;
+                    acceleration[i3 + 1] = 0;
+                    acceleration[i3 + 2] = 0;
+                }
+                
+                // 应用手势交互力
+                if (handLandmarks) {
+                    applyGestureForces(i3, cx, cy, cz, vx, vy, vz);
+                }
                 
                 // 更新速度（加速度积分）
-                particleVelocities[i3] += particleAccelerations[i3] * deltaTime;
-                particleVelocities[i3 + 1] += particleAccelerations[i3 + 1] * deltaTime;
-                particleVelocities[i3 + 2] += particleAccelerations[i3 + 2] * deltaTime;
+                vx += acceleration[i3] * dt;
+                vy += acceleration[i3 + 1] * dt;
+                vz += acceleration[i3 + 2] * dt;
                 
                 // 应用阻尼
-                particleVelocities[i3] *= dampingFactor;
-                particleVelocities[i3 + 1] *= dampingFactor;
-                particleVelocities[i3 + 2] *= dampingFactor;
+                vx *= CONFIG.PHYSICS.DAMPING;
+                vy *= CONFIG.PHYSICS.DAMPING;
+                vz *= CONFIG.PHYSICS.DAMPING;
                 
-                // 更新位置（速度积分）
-                particlePositions[i3] += particleVelocities[i3] * deltaTime;
-                particlePositions[i3 + 1] += particleVelocities[i3 + 1] * deltaTime;
-                particlePositions[i3 + 2] += particleVelocities[i3 + 2] * deltaTime;
+                // 限制最大速度
+                const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
+                if (speed > CONFIG.PHYSICS.MAX_VELOCITY) {
+                    const scale = CONFIG.PHYSICS.MAX_VELOCITY / speed;
+                    vx *= scale;
+                    vy *= scale;
+                    vz *= scale;
+                }
                 
-                // 重置加速度
-                particleAccelerations[i3] *= 0.1;
-                particleAccelerations[i3 + 1] *= 0.1;
-                particleAccelerations[i3 + 2] *= 0.1;
+                // 更新位置
+                currentPosition[i3] = cx + vx * dt;
+                currentPosition[i3 + 1] = cy + vy * dt;
+                currentPosition[i3 + 2] = cz + vz * dt;
+                
+                // 保存速度
+                velocity[i3] = vx;
+                velocity[i3 + 1] = vy;
+                velocity[i3 + 2] = vz;
             }
             
-            // 更新几何体顶点
-            particleGeometry.attributes.position.needsUpdate = true;
+            // 更新几何体
+            particles.geometry.attributes.position.needsUpdate = true;
         }
         
-        // 窗口大小调整处理
+        // ==================== 手势交互力 ====================
+        function applyGestureForces(i3, cx, cy, cz, vx, vy, vz) {
+            if (!handLandmarks || handSpeed < 0.01) return;
+            
+            // 手部中心位置（归一化到3D空间）
+            const handCenter = handLandmarks[9];
+            const handX = (handCenter.x - 0.5) * 8;
+            const handY = -(handCenter.y - 0.5) * 6;
+            const handZ = (handCenter.z + 0.5) * 4;
+            
+            // 计算粒子到手的距离
+            const dx = cx - handX;
+            const dy = cy - handY;
+            const dz = cz - handZ;
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            
+            // 挥手风暴效果
+            if (handSpeed > 0.05 && dist < 4.0) {
+                const stormForce = CONFIG.PHYSICS.STORM_FORCE * handSpeed * Math.max(0, 1 - dist / 4);
+                
+                // 基于挥动方向的推力
+                acceleration[i3] += (dx / dist) * stormForce * 0.1;
+                acceleration[i3 + 1] += (dy / dist) * stormForce * 0.1;
+                acceleration[i3 + 2] += (dz / dist) * stormForce * 0.1;
+            }
+            
+            // 推拉效果（基于手掌大小/深度）
+            if (palmArea > 0) {
+                const depthForce = (palmArea - 0.05) * 20;
+                acceleration[i3 + 2] += depthForce * 0.01;
+            }
+        }
+        
+        // ==================== 爆炸特效 ====================
+        function triggerExplosion() {
+            const count = CONFIG.PARTICLE_COUNT;
+            const force = CONFIG.PHYSICS.EXPLOSION_FORCE;
+            
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                
+                // 随机爆炸方向
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                
+                velocity[i3] += force * Math.sin(phi) * Math.cos(theta);
+                velocity[i3 + 1] += force * Math.sin(phi) * Math.sin(theta);
+                velocity[i3 + 2] += force * Math.cos(phi);
+            }
+        }
+        
+        // ==================== 手势识别 ====================
+        function detectGesture() {
+            if (!handLandmarks) return null;
+            
+            const landmarks = handLandmarks;
+            
+            // 关键点
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const middleTip = landmarks[12];
+            const ringTip = landmarks[16];
+            const pinkyTip = landmarks[20];
+            const wrist = landmarks[0];
+            
+            // 计算距离
+            const dist = (p1, p2) => Math.sqrt(
+                Math.pow(p1.x - p2.x, 2) + 
+                Math.pow(p1.y - p2.y, 2) + 
+                Math.pow(p1.z - p2.z, 2)
+            );
+            
+            const thumbIndex = dist(thumbTip, indexTip);
+            const indexMiddle = dist(indexTip, middleTip);
+            const thumbWrist = dist(thumbTip, wrist);
+            const indexWrist = dist(indexTip, wrist);
+            const middleWrist = dist(middleTip, wrist);
+            const ringWrist = dist(ringTip, wrist);
+            const pinkyWrist = dist(pinkyTip, wrist);
+            
+            // 手势判断逻辑
+            if (thumbWrist < 0.08 && indexWrist < 0.08 && middleWrist < 0.08 && 
+                ringWrist < 0.08 && pinkyWrist < 0.08) {
+                return 'fist'; // 握拳
+            }
+            
+            if (thumbIndex > 0.12 && indexMiddle > 0.1 && thumbWrist > 0.2) {
+                return 'point'; // 食指
+            }
+            
+            if (thumbIndex > 0.1 && indexMiddle > 0.08 && 
+                thumbWrist > 0.15 && indexWrist > 0.15) {
+                return 'scissors'; // 剪刀手
+            }
+            
+            if (thumbWrist > 0.15 && indexWrist < 0.08 && middleWrist < 0.08) {
+                return 'thumbsUp'; // 竖大拇指
+            }
+            
+            if (thumbWrist > 0.1 && indexWrist > 0.1 && middleWrist > 0.1 && 
+                ringWrist > 0.1 && pinkyWrist > 0.1) {
+                return 'open'; // 张手
+            }
+            
+            return null;
+        }
+        
+        function updateHandMetrics() {
+            if (!handLandmarks) {
+                handSpeed = 0;
+                palmArea = 0;
+                return;
+            }
+            
+            // 手部中心
+            const center = handLandmarks[9];
+            const currentX = (center.x - 0.5) * 8;
+            const currentY = -(center.y - 0.5) * 6;
+            const currentZ = (center.z + 0.5) * 4;
+            
+            // 计算手速
+            if (prevHandPos.x !== 0) {
+                const dx = currentX - prevHandPos.x;
+                const dy = currentY - prevHandPos.y;
+                const dz = currentZ - prevHandPos.z;
+                handSpeed = Math.sqrt(dx*dx + dy*dy + dz*dz) * 10;
+            }
+            
+            prevHandPos.x = currentX;
+            prevHandPos.y = currentY;
+            prevHandPos.z = currentZ;
+            
+            // 计算手掌面积（通过拇指和小指根部）
+            const thumbBase = handLandmarks[2];
+            const pinkyBase = handLandmarks[17];
+            palmArea = Math.sqrt(
+                Math.pow(thumbBase.x - pinkyBase.x, 2) + 
+                Math.pow(thumbBase.y - pinkyBase.y, 2)
+            );
+        }
+        
+        // ==================== 相机和MediaPipe ====================
+        async function initCameraAndHands() {
+            showLoading('正在请求摄像头权限...');
+            
+            try {
+                // 检查浏览器支持
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    startAutoMode('浏览器不支持摄像头');
+                    return;
+                }
+                
+                // 检查HTTPS
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    startAutoMode('需要HTTPS环境');
+                    return;
+                }
+                
+                // 请求摄像头
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user' 
+                    }
+                });
+                
+                // 创建视频元素
+                cameraVideo = document.createElement('video');
+                cameraVideo.style.display = 'none';
+                cameraVideo.setAttribute('playsinline', true);
+                cameraVideo.muted = true;
+                document.body.appendChild(cameraVideo);
+                cameraVideo.srcObject = stream;
+                
+                await new Promise(resolve => {
+                    cameraVideo.onloadedmetadata = resolve;
+                });
+                
+                cameraVideo.play();
+                
+                // 初始化MediaPipe Hands
+                showLoading('正在初始化手势识别...');
+                
+                hands = new Hands({
+                    locateFile: (file) => {
+                        return `https://unpkg.com/@mediapipe/hands@0.4.1646424915/${file}`;
+                    }
+                });
+                
+                hands.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5,
+                    selfieMode: true
+                });
+                
+                hands.onResults(onHandResults);
+                
+                // 初始化摄像头
+                cameraObj = new Camera(cameraVideo, {
+                    onFrame: async () => {
+                        await hands.send({ image: cameraVideo });
+                    },
+                    width: 1280,
+                    height: 720
+                });
+                
+                cameraObj.start();
+                
+                // 设置状态
+                isCameraActive = true;
+                updateStatus('手势识别已就绪', true);
+                hideLoading();
+                
+            } catch (error) {
+                console.error('摄像头初始化失败:', error);
+                startAutoMode('摄像头访问失败');
+            }
+        }
+        
+        function onHandResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handLandmarks = results.multiHandLandmarks[0];
+                updateHandMetrics();
+                
+                // 检测手势
+                const detectedGesture = detectGesture();
+                if (detectedGesture && detectedGesture !== currentGesture) {
+                    currentGesture = detectedGesture;
+                    updateStatus(getGestureName(currentGesture), true);
+                    triggerExplosion();
+                    autoShapeTimer = 0; // 重置自动计时
+                }
+            } else {
+                handLandmarks = null;
+                handSpeed = 0;
+                palmArea = 0;
+            }
+        }
+        
+        // ==================== 自动模式 ====================
+        function startAutoMode(reason) {
+            console.log('启动自动模式:', reason);
+            updateStatus('自动模式 - ' + reason, false);
+            hideLoading();
+            
+            // 每5秒切换一次形态
+            const autoSwitch = () => {
+                if (!isCameraActive) {
+                    const gestures = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
+                    const currentIndex = gestures.indexOf(currentGesture);
+                    const nextIndex = (currentIndex + 1) % gestures.length;
+                    
+                    currentGesture = gestures[nextIndex];
+                    updateStatus('自动模式: ' + getGestureName(currentGesture), false);
+                    triggerExplosion();
+                }
+            };
+            
+            setInterval(autoSwitch, CONFIG.AUTO_SWITCH_INTERVAL);
+        }
+        
+        // ==================== 动画循环 ====================
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 计算时间差
+            const now = performance.now();
+            const deltaTime = (now - lastFrameTime) / 1000;
+            lastFrameTime = now;
+            
+            // 更新物理
+            if (particleSystem) {
+                updatePhysics(deltaTime);
+            }
+            
+            // 渲染
+            renderer.render(scene, camera);
+            
+            // 更新FPS
+            updateFPS(now);
+            
+            // 自动模式计时
+            if (!isCameraActive) {
+                autoShapeTimer += deltaTime * 1000;
+            }
+        }
+        
+        // ==================== UI 更新 ====================
+        function updateStatus(text, active) {
+            const statusEl = document.getElementById('gestureStatus');
+            const indicator = document.getElementById('statusIndicator');
+            
+            if (statusEl) {
+                statusEl.textContent = text;
+                statusEl.style.color = active ? '#00ffff' : '#ffaa00';
+            }
+            
+            if (indicator) {
+                indicator.className = active ? 'status-indicator' : 'status-indicator inactive';
+            }
+        }
+        
+        function updateFPS(now) {
+            frameCount++;
+            
+            if (now - fpsUpdateTimer >= 1000) {
+                fps = Math.round((frameCount * 1000) / (now - fpsUpdateTimer));
+                const fpsEl = document.getElementById('fpsCounter');
+                if (fpsEl) {
+                    fpsEl.textContent = fps;
+                    fpsEl.style.color = fps >= 50 ? '#00ff00' : fps >= 30 ? '#ffff00' : '#ff0000';
+                }
+                frameCount = 0;
+                fpsUpdateTimer = now;
+            }
+        }
+        
+        function showLoading(text) {
+            const el = document.getElementById('loadingIndicator');
+            if (el) {
+                el.innerHTML = text;
+                el.style.display = 'block';
+            }
+        }
+        
+        function hideLoading() {
+            const el = document.getElementById('loadingIndicator');
+            if (el) {
+                el.style.display = 'none';
+            }
+        }
+        
+        function getGestureName(gesture) {
+            const names = {
+                'open': '张手',
+                'scissors': '剪刀手',
+                'fist': '握拳',
+                'point': '食指',
+                'thumbsUp': '竖大拇指'
+            };
+            return names[gesture] || gesture;
+        }
+        
+        // ==================== 窗口调整 ====================
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
-        // 动画循环
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // 计算时间差
-            const now = performance.now();
-            let deltaTime = (now - lastFrameTime) / 1000;
-            lastFrameTime = now;
-            
-            // 限制最大时间差以保证稳定性
-            deltaTime = Math.min(deltaTime, 0.1);
-            
-            // 自动形状切换（当没有手势检测到时）
-            if (!handLandmarks) {
-                autoShapeTimer += deltaTime * 1000; // 转换为毫秒
-                if (autoShapeTimer >= AUTO_SHAPE_INTERVAL) {
-                    currentShapeIndex = (currentShapeIndex + 1) % shapes.length;
-                    currentGesture = shapes[currentShapeIndex];
-                    autoShapeTimer = 0;
-                    
-                    // 触发爆炸效果让变化更明显
-                    triggerExplosion();
-                    
-                    // 更新UI
-                    document.getElementById('gestureStatus').textContent = `自动模式: ${getGestureName(currentGesture)}`;
-                    
-                    console.log('自动模式切换到:', getGestureName(currentGesture));
-                }
-            }
-            
-            // 更新物理系统
-            updatePhysics(deltaTime);
-            
-            // 渲染场景
-            renderer.render(scene, camera);
-            
-            // 更新FPS计数器
-            updateFpsCounter(now);
-        }
-        
-        // 更新FPS计数器
-        function updateFpsCounter(now) {
-            frameCount++;
-            
-            // 记录帧时间样本
-            if (lastFrameTime > 0) {
-                const frameTime = now - lastFrameTime;
-                frameTimeSamples.push(frameTime);
-                
-                // 保持样本数量在限制范围内
-                if (frameTimeSamples.length > MAX_SAMPLES) {
-                    frameTimeSamples.shift();
-                }
-                
-                // 计算平均帧时间
-                avgFrameTime = frameTimeSamples.reduce((a, b) => a + b, 0) / frameTimeSamples.length;
-            }
-            
-            if (now - lastFpsUpdate >= 1000) {
-                const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
-                const avgFrameTimeMs = avgFrameTime.toFixed(1);
-                document.getElementById('fpsCounter').textContent = `${fps} FPS (${avgFrameTimeMs}ms)`;
-                frameCount = 0;
-                lastFpsUpdate = now;
-            }
-        }
-        
-        // 页面加载完成后初始化
+        // ==================== 启动 ====================
         window.addEventListener('load', init);
-        
     </script>
 </body>
 </html>
