@@ -255,6 +255,7 @@ MIT License - 可自由使用、修改和分发
 - **Three.js** - 强大的3D图形库
 - **MediaPipe** - 优秀的手势识别方案
 - **unpkg/jsdelivr** - 稳定的CDN服务
+- **[Christmas Tree 3D](https://github.com/mtzfbdsg-sys/christmas-tree)** - 圣诞树系统的灵感来源和参考实现
 
 ---
 
