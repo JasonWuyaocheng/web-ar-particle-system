@@ -246,6 +246,69 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
 
+        /* 进度指示器 - 新增 */
+        #progressIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.95);
+            padding: 40px;
+            border-radius: 16px;
+            border: 2px solid #00ffff;
+            text-align: center;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+            min-width: 320px;
+            display: none;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #00ff88);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .progress-text {
+            color: #00ffff;
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .progress-steps {
+            color: #888;
+            font-size: 11px;
+            margin-top: 5px;
+            text-align: left;
+        }
+
+        .progress-step {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+
+        .progress-step.complete {
+            color: #00ff88;
+        }
+
+        .progress-step.current {
+            color: #00ffff;
+            font-weight: 700;
+        }
+
         /* 加载指示器 */
         #loadingIndicator {
             position: fixed;
@@ -261,6 +324,7 @@
             backdrop-filter: blur(30px);
             box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
             min-width: 280px;
+            display: none;
         }
 
         .loader {
@@ -359,6 +423,11 @@
                 padding: 8px 16px;
                 bottom: 10px;
             }
+
+            #progressIndicator {
+                min-width: 280px;
+                padding: 30px;
+            }
         }
 
         /* 拖拽标题样式 */
@@ -428,6 +497,22 @@
         <button class="top-btn" onclick="toggleUI()">👁 隐藏UI</button>
     </div>
 
+    <!-- 进度指示器 -->
+    <div id="progressIndicator">
+        <div class="loader"></div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="progress-text" id="progressText">正在初始化系统...</div>
+        <div class="progress-steps" id="progressSteps">
+            <div class="progress-step" data-step="scene">● 创建3D场景</div>
+            <div class="progress-step" data-step="particles">● 生成粒子系统</div>
+            <div class="progress-step" data-step="text">● 预处理文字形状</div>
+            <div class="progress-step" data-step="camera">● 请求摄像头权限</div>
+            <div class="progress-step" data-step="gesture">● 初始化手势识别</div>
+        </div>
+    </div>
+
     <!-- 左侧信息面板 -->
     <div id="infoPanel" class="glass-panel">
         <h2>系统状态</h2>
@@ -471,7 +556,7 @@
     <div id="infoTooltip">💡 张手/五指/握拳/食指/大拇指 | 挥手触发风暴 | 推拉改变深度</div>
 
     <!-- 加载指示器 -->
-    <div id="loadingIndicator" style="display: none;">
+    <div id="loadingIndicator">
         <div class="loader"></div>
         <div id="loadingText">正在初始化系统...</div>
     </div>
@@ -537,26 +622,100 @@
         // 文字形状数据
         let textPoints = [];
         
+        // 进度管理
+        let progressSteps = ['scene', 'particles', 'text', 'camera', 'gesture'];
+        let currentProgressStep = 0;
+        
+        // ==================== 进度显示系统 ====================
+        function showProgress() {
+            const el = document.getElementById('progressIndicator');
+            if (el) {
+                el.style.display = 'block';
+                updateProgress(0, '正在初始化系统...');
+            }
+        }
+        
+        function hideProgress() {
+            const el = document.getElementById('progressIndicator');
+            if (el) {
+                el.style.display = 'none';
+            }
+        }
+        
+        function updateProgress(percent, text, stepName = null) {
+            const bar = document.getElementById('progressBar');
+            const textEl = document.getElementById('progressText');
+            
+            if (bar) {
+                bar.style.width = percent + '%';
+            }
+            if (textEl) {
+                textEl.textContent = text;
+            }
+            
+            // 更新步骤状态
+            if (stepName) {
+                const stepIndex = progressSteps.indexOf(stepName);
+                if (stepIndex >= 0) {
+                    // 完成当前步骤之前的所有步骤
+                    for (let i = 0; i <= stepIndex; i++) {
+                        const stepEl = document.querySelector(`[data-step="${progressSteps[i]}"]`);
+                        if (stepEl) {
+                            if (i < stepIndex) {
+                                stepEl.className = 'progress-step complete';
+                            } else if (i === stepIndex) {
+                                stepEl.className = 'progress-step current';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function completeStep(stepName) {
+            const stepIndex = progressSteps.indexOf(stepName);
+            if (stepIndex >= 0) {
+                const stepEl = document.querySelector(`[data-step="${stepName}"]`);
+                if (stepEl) {
+                    stepEl.className = 'progress-step complete';
+                }
+                currentProgressStep = stepIndex + 1;
+                const percent = ((stepIndex + 1) / progressSteps.length) * 100;
+                updateProgress(percent, `完成: ${stepName}`);
+            }
+        }
+        
         // ==================== 初始化系统 ====================
         function init() {
-            showLoading('正在创建3D场景...');
+            showProgress();
+            updateProgress(5, '开始创建3D场景...', 'scene');
             
             // 1. 创建Three.js场景
             createScene();
+            completeStep('scene');
             
             // 2. 创建粒子系统
-            createParticleSystem();
-            
-            // 3. 生成文字形状数据
-            generateTextShape();
-            
-            // 4. 开始动画循环
-            animate();
-            
-            // 5. 请求摄像头权限
             setTimeout(() => {
-                initCameraAndHands();
-            }, 1500);
+                updateProgress(25, '正在生成16,000个粒子...', 'particles');
+                createParticleSystem();
+                completeStep('particles');
+                
+                // 3. 生成文字形状数据
+                setTimeout(() => {
+                    updateProgress(45, '正在预处理文字形状...', 'text');
+                    generateTextShape();
+                    completeStep('text');
+                    
+                    // 4. 开始动画循环
+                    animate();
+                    
+                    // 5. 请求摄像头权限
+                    setTimeout(() => {
+                        updateProgress(65, '正在请求摄像头权限...', 'camera');
+                        initCameraAndHands();
+                    }, 500);
+                }, 300);
+            }, 300);
         }
         
         // ==================== 场景创建 ====================
@@ -641,17 +800,17 @@
             
             geometry.setAttribute('position', new THREE.BufferAttribute(currentPosition, 3));
             
-        // 材质 - 最终优化：清晰的粒子外观
-        const material = new THREE.PointsMaterial({
-            color: CONFIG.PARTICLE_COLOR,
-            size: 1.0, // 最终优化：进一步减小到1.0
-            transparent: true,
-            opacity: 0.9,
-            sizeAttenuation: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            antialias: true
-        });
+            // 材质 - 最终优化：清晰的粒子外观
+            const material = new THREE.PointsMaterial({
+                color: CONFIG.PARTICLE_COLOR,
+                size: 1.0, // 最终优化：进一步减小到1.0
+                transparent: true,
+                opacity: 0.9,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                antialias: true
+            });
             
             // 创建粒子系统
             particles = new THREE.Points(geometry, material);
@@ -1156,8 +1315,6 @@
         
         // ==================== 相机和MediaPipe ====================
         async function initCameraAndHands() {
-            showLoading('正在请求摄像头权限...');
-            
             try {
                 // 检查浏览器支持
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -1195,7 +1352,7 @@
                 cameraVideo.play();
                 
                 // 初始化MediaPipe Hands
-                showLoading('正在初始化手势识别...');
+                updateProgress(85, '正在初始化手势识别...', 'gesture');
                 
                 hands = new Hands({
                     locateFile: (file) => {
@@ -1227,7 +1384,12 @@
                 // 设置状态
                 isCameraActive = true;
                 updateStatus('手势识别已就绪', true);
-                hideLoading();
+                completeStep('gesture');
+                
+                // 隐藏进度指示器
+                setTimeout(() => {
+                    hideProgress();
+                }, 500);
                 
             } catch (error) {
                 console.error('摄像头初始化失败:', error);
@@ -1259,7 +1421,11 @@
         function startAutoMode(reason) {
             console.log('启动自动模式:', reason);
             updateStatus('自动模式 - ' + reason, false);
-            hideLoading();
+            completeStep('gesture');
+            
+            setTimeout(() => {
+                hideProgress();
+            }, 500);
             
             // 每5秒切换一次形态
             const autoSwitch = () => {
@@ -1336,8 +1502,8 @@
         function showLoading(text) {
             const el = document.getElementById('loadingIndicator');
             if (el) {
-                el.innerHTML = text;
                 el.style.display = 'block';
+                document.getElementById('loadingText').textContent = text;
             }
         }
         
@@ -1387,7 +1553,7 @@
         };
 
         window.setGestureMode = function(mode) {
-            if (isAnimating) return;
+            if (isCameraActive) return;
             currentGesture = mode;
             updateStatus(getGestureName(mode), true);
             triggerExplosion();
@@ -1403,7 +1569,6 @@
         function initDraggableTitle() {
             const title = document.getElementById('mainTitle');
             let isDragging = false;
-            let startPos = { x: 0, y: 0 };
             let offset = { x: 0, y: 0 };
 
             title.addEventListener('mousedown', (e) => {
@@ -1457,7 +1622,6 @@
         // ==================== 键盘快捷键 ====================
         function initKeyboardShortcuts() {
             window.addEventListener('keydown', (e) => {
-                // 如果在输入框中，不处理快捷键
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
                 switch(e.key.toLowerCase()) {
@@ -1489,7 +1653,6 @@
                         break;
                     case ' ':
                         e.preventDefault();
-                        // 切换到下一个模式
                         const gestures = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
                         const currentIndex = gestures.indexOf(currentGesture);
                         const nextIndex = (currentIndex + 1) % gestures.length;
@@ -1497,6 +1660,18 @@
                         break;
                 }
             });
+        }
+
+        // ==================== 消息提示 ====================
+        function showToast(message) {
+            const toast = document.getElementById('stateToast');
+            if (toast) {
+                toast.textContent = message;
+                toast.className = 'show';
+                setTimeout(() => {
+                    toast.className = '';
+                }, 2000);
+            }
         }
 
         // ==================== 启动 ====================

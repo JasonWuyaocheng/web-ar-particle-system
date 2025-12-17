@@ -352,6 +352,69 @@
             cursor: pointer;
         }
 
+        /* 进度指示器 - 新增 */
+        #progressIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.95);
+            padding: 40px;
+            border-radius: 16px;
+            border: 2px solid #D4AF37;
+            text-align: center;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.3);
+            min-width: 320px;
+            display: none;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #D4AF37, #10b981);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        }
+
+        .progress-text {
+            color: #D4AF37;
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .progress-steps {
+            color: #888;
+            font-size: 11px;
+            margin-top: 5px;
+            text-align: left;
+        }
+
+        .progress-step {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+
+        .progress-step.complete {
+            color: #10b981;
+        }
+
+        .progress-step.current {
+            color: #D4AF37;
+            font-weight: 700;
+        }
+
         /* 加载指示器 */
         #loadingIndicator {
             position: fixed;
@@ -593,6 +656,11 @@
             .manager-title {
                 font-size: 16px;
             }
+
+            #progressIndicator {
+                min-width: 280px;
+                padding: 30px;
+            }
         }
 
         /* 滚动条样式 */
@@ -623,8 +691,24 @@
     <!-- 3D画布容器 -->
     <div id="canvasContainer"></div>
 
+    <!-- 进度指示器 -->
+    <div id="progressIndicator">
+        <div class="loader"></div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="progress-text" id="progressText">正在初始化圣诞树系统...</div>
+        <div class="progress-steps" id="progressSteps">
+            <div class="progress-step" data-step="scene">● 创建3D场景</div>
+            <div class="progress-step" data-step="tree">● 构建圣诞树</div>
+            <div class="progress-step" data-step="postprocess">● 后期处理</div>
+            <div class="progress-step" data-step="camera">● 请求摄像头权限</div>
+            <div class="progress-step" data-step="gesture">● 初始化手势识别</div>
+        </div>
+    </div>
+
     <!-- UI面板 -->
-    <div id="uiPanel">
+    <div id="uiPanel" class="glass-panel">
         <h2>🎄 圣诞树状态</h2>
         <div class="status-item">
             <span class="status-label">当前状态</span>
@@ -647,16 +731,10 @@
     </div>
 
     <!-- 手势指示器 -->
-    <div id="gestureIndicator">
+    <div id="gestureIndicator" class="glass-panel">
         <h3>手势识别</h3>
         <div class="gesture-icon" id="gestureIcon">✋</div>
         <div class="gesture-name" id="gestureName">初始化中...</div>
-    </div>
-
-    <!-- 拖拽标题 -->
-    <div id="mainTitle">
-        <h1 class="title-line">🎄 手势控制3D圣诞树</h1>
-        <div class="title-subline">WebAR 交互系统</div>
     </div>
 
     <!-- 顶部操作按钮 -->
@@ -679,7 +757,7 @@
     </div>
 
     <!-- 底部控制面板 -->
-    <div id="controlPanel">
+    <div id="controlPanel" class="glass-panel">
         <div class="control-title">状态控制</div>
         <button class="control-btn" onclick="setFoldedState()">⏸️ 合拢</button>
         <button class="control-btn primary" onclick="setScatteredState()">▶️ 散开</button>
@@ -785,29 +863,100 @@
         let cameraRotation = { x: 0, y: 0 };
         let targetCameraRotation = { x: 0, y: 0 };
 
+        // 进度管理
+        let progressSteps = ['scene', 'tree', 'postprocess', 'camera', 'gesture'];
+        let currentProgressStep = 0;
+
+        // ==================== 进度显示系统 ====================
+        function showProgress() {
+            const el = document.getElementById('progressIndicator');
+            if (el) {
+                el.style.display = 'block';
+                updateProgress(0, '正在初始化圣诞树系统...');
+            }
+        }
+
+        function hideProgress() {
+            const el = document.getElementById('progressIndicator');
+            if (el) {
+                el.style.display = 'none';
+            }
+        }
+
+        function updateProgress(percent, text, stepName = null) {
+            const bar = document.getElementById('progressBar');
+            const textEl = document.getElementById('progressText');
+
+            if (bar) {
+                bar.style.width = percent + '%';
+            }
+            if (textEl) {
+                textEl.textContent = text;
+            }
+
+            // 更新步骤状态
+            if (stepName) {
+                const stepIndex = progressSteps.indexOf(stepName);
+                if (stepIndex >= 0) {
+                    // 完成当前步骤之前的所有步骤
+                    for (let i = 0; i <= stepIndex; i++) {
+                        const stepEl = document.querySelector(`[data-step="${progressSteps[i]}"]`);
+                        if (stepEl) {
+                            if (i < stepIndex) {
+                                stepEl.className = 'progress-step complete';
+                            } else if (i === stepIndex) {
+                                stepEl.className = 'progress-step current';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function completeStep(stepName) {
+            const stepIndex = progressSteps.indexOf(stepName);
+            if (stepIndex >= 0) {
+                const stepEl = document.querySelector(`[data-step="${stepName}"]`);
+                if (stepEl) {
+                    stepEl.className = 'progress-step complete';
+                }
+                currentProgressStep = stepIndex + 1;
+                const percent = ((stepIndex + 1) / progressSteps.length) * 100;
+                updateProgress(percent, `完成: ${stepName}`);
+            }
+        }
+
         // ==================== 初始化系统 ====================
         function init() {
-            showLoading('正在创建3D场景...');
+            showProgress();
+            updateProgress(5, '正在创建3D场景...', 'scene');
 
             // 1. 创建场景
             createScene();
+            completeStep('scene');
 
             // 2. 创建圣诞树
-            createChristmasTree();
-
-            // 3. 设置后期处理
-            setupPostProcessing();
-
-            // 4. 开始动画循环
-            animate();
-
-            // 5. 请求摄像头权限
             setTimeout(() => {
-                initCameraAndHands();
-            }, 1500);
+                updateProgress(25, '正在构建圣诞树...', 'tree');
+                createChristmasTree();
+                completeStep('tree');
 
-            // 6. 设置事件监听
-            setupEventListeners();
+                // 3. 设置后期处理
+                setTimeout(() => {
+                    updateProgress(45, '正在设置后期处理...', 'postprocess');
+                    setupPostProcessing();
+                    completeStep('postprocess');
+
+                    // 4. 开始动画循环
+                    animate();
+
+                    // 5. 请求摄像头权限
+                    setTimeout(() => {
+                        updateProgress(65, '正在请求摄像头权限...', 'camera');
+                        initCameraAndHands();
+                    }, 500);
+                }, 300);
+            }, 300);
         }
 
         function createScene() {
@@ -1131,15 +1280,13 @@
             try {
                 // 检查浏览器支持
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    showError('浏览器不支持摄像头');
-                    startAutoMode();
+                    startAutoMode('浏览器不支持摄像头');
                     return;
                 }
 
                 // 检查HTTPS
                 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                    showError('需要HTTPS环境');
-                    startAutoMode();
+                    startAutoMode('需要HTTPS环境');
                     return;
                 }
 
@@ -1167,7 +1314,7 @@
                 cameraVideo.play();
 
                 // 初始化MediaPipe Hands
-                showLoading('正在初始化手势识别...');
+                updateProgress(85, '正在初始化手势识别...', 'gesture');
 
                 handsModule = new Hands({
                     locateFile: (file) => {
@@ -1196,14 +1343,18 @@
 
                 handsObj.start();
 
-                // 更新UI
-                document.getElementById('gestureStatus').innerHTML = '<span class="camera-status active"></span>已连接';
-                hideLoading();
+                // 设置状态
+                updateStatus('手势识别已就绪', true);
+                completeStep('gesture');
+
+                // 隐藏进度指示器
+                setTimeout(() => {
+                    hideProgress();
+                }, 500);
 
             } catch (error) {
                 console.error('摄像头初始化失败:', error);
-                showError('摄像头初始化失败，启用自动模式');
-                startAutoMode();
+                startAutoMode('摄像头初始化失败');
             }
         }
 
@@ -1641,7 +1792,13 @@
         }
 
         // ==================== 自动模式 ====================
-        function startAutoMode() {
+        function startAutoMode(reason) {
+            completeStep('gesture');
+            
+            setTimeout(() => {
+                hideProgress();
+            }, 500);
+
             document.getElementById('gestureStatus').innerHTML = '<span class="camera-status"></span>自动模式';
             
             // 自动循环演示
@@ -2027,6 +2184,7 @@
         // ==================== 启动应用 ====================
         window.addEventListener('load', () => {
             init();
+            setupEventListeners();
             // 延迟初始化拖拽，确保DOM完全加载
             setTimeout(initDraggableTitle, 100);
         });
