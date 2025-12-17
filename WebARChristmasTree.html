@@ -1243,6 +1243,13 @@
             document.getElementById('left-sidebar').classList.toggle('panel-hidden', !STATE.uiVisible); 
             document.querySelector('.bottom-left-panel').classList.toggle('panel-hidden', !STATE.uiVisible); 
             document.getElementById('debug-info').classList.toggle('debug-hidden', !STATE.uiVisible);
+            document.getElementById('top-right-controls').classList.toggle('panel-hidden', !STATE.uiVisible);
+            
+            // 显示提示
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = STATE.uiVisible ? "界面已显示" : "界面已隐藏";
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 1500);
         };
         
         window.toggleCameraDisplay=()=> { 
@@ -1435,6 +1442,14 @@
         };
 
         window.setupEvents = function() {
+            // 确保所有UI元素在初始化后都可见
+            setTimeout(() => {
+                document.querySelector('.bottom-left-panel').classList.remove('panel-hidden');
+                document.getElementById('top-right-controls').classList.remove('panel-hidden');
+                document.getElementById('left-sidebar').classList.remove('panel-hidden');
+                STATE.uiVisible = true;
+            }, 100);
+
             window.addEventListener('resize', () => { 
                 if(camera && renderer && composer) {
                     camera.aspect = window.innerWidth/window.innerHeight; 
