@@ -75,6 +75,8 @@
         let cameraVideo = null;
         let hands = null;
         let currentGesture = 'open';
+        let lastGesture = 'open';
+        let gestureTransitionTime = 0;
         
         // 物理参数
         const accelerationFactor = 0.02;
@@ -306,11 +308,18 @@
         // 请求摄像头权限
         async function requestCameraPermission() {
             // 检查安全上下文
-            if (!checkSecureContext()) return;
+            if (!checkSecureContext()) {
+                // 如果不满足安全要求，启动自动模式作为演示
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('gestureStatus').textContent = '自动模式: 张手';
+                return;
+            }
             
             // 检查浏览器支持
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                showError('浏览器不支持摄像头功能');
+                // 浏览器不支持，启动自动模式
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('gestureStatus').textContent = '自动模式: 张手';
                 return;
             }
             
@@ -336,7 +345,9 @@
                 }
                 
             } catch (error) {
-                showError('无法访问摄像头: ' + error.message);
+                // 摄像头访问失败，启动自动模式
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('gestureStatus').textContent = '自动模式: 张手';
             }
         }
         
@@ -785,7 +796,7 @@
             // 限制最大时间差以保证稳定性
             deltaTime = Math.min(deltaTime, 0.1);
             
-            // 自动形状切换（当没有手势识别时）
+            // 自动形状切换（当没有手势检测到时）
             if (!handLandmarks) {
                 autoShapeTimer += deltaTime * 1000; // 转换为毫秒
                 if (autoShapeTimer >= AUTO_SHAPE_INTERVAL) {
@@ -793,8 +804,13 @@
                     currentGesture = shapes[currentShapeIndex];
                     autoShapeTimer = 0;
                     
+                    // 触发爆炸效果让变化更明显
+                    triggerExplosion();
+                    
                     // 更新UI
                     document.getElementById('gestureStatus').textContent = `自动模式: ${getGestureName(currentGesture)}`;
+                    
+                    console.log('自动模式切换到:', getGestureName(currentGesture));
                 }
             }
             
