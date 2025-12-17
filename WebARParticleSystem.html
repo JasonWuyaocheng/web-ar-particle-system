@@ -5,16 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>WebAR 粒子互动系统 - 16000流体粒子</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
             overflow: hidden;
             width: 100vw;
             height: 100vh;
-            background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
         }
-        
+
         #canvasContainer {
             position: fixed;
             top: 0;
@@ -23,95 +28,456 @@
             height: 100%;
             z-index: 1;
         }
-        
+
+        /* UI面板 - 玻璃拟态风格 */
+        .glass-panel {
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.15), inset -0.5px -0.5px 0px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* 左侧信息面板 */
         #infoPanel {
             position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-size: 14px;
+            top: 15px;
+            left: 15px;
+            width: 220px;
+            padding: 12px;
             z-index: 100;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            backdrop-filter: blur(10px);
-            min-width: 200px;
+            transform: scale(0.9);
+            transform-origin: top left;
         }
-        
-        #infoPanel div {
-            margin: 5px 0;
-            font-weight: 500;
-        }
-        
-        #gestureStatus {
+
+        #infoPanel h2 {
             color: #00ffff;
-            font-weight: bold;
-            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            font-weight: 700;
+            letter-spacing: 1px;
         }
-        
-        #fpsCounter {
-            color: #00ff00;
-            font-weight: bold;
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 4px 0;
+            padding: 4px 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            font-size: 11px;
         }
-        
+
+        .status-label {
+            color: #aaa;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-value {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #ff0000;
+            box-shadow: 0 0 4px #ff0000;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .status-indicator.active {
+            background: #00ff00;
+            box-shadow: 0 0 6px #00ff00;
+            animation: none;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 手势指示器 */
+        #gestureIndicator {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            width: 160px;
+            padding: 12px;
+            z-index: 100;
+            transform: scale(0.9);
+            transform-origin: top right;
+            text-align: center;
+        }
+
+        #gestureIndicator h3 {
+            color: #ff4444;
+            font-size: 12px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+        }
+
+        .gesture-icon {
+            font-size: 36px;
+            margin: 6px 0;
+            filter: drop-shadow(0 0 8px rgba(255, 68, 68, 0.6));
+        }
+
+        .gesture-name {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            text-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+            margin-top: 4px;
+        }
+
+        /* 底部控制面板 */
+        #controlPanel {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            padding: 10px;
+            z-index: 100;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 220px;
+            transform: scale(0.9);
+            transform-origin: bottom left;
+        }
+
+        .control-title {
+            grid-column: span 2;
+            font-size: 10px;
+            color: #00ffff;
+            text-align: center;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+            padding-bottom: 3px;
+        }
+
+        .control-btn {
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            color: #00ffff;
+            cursor: pointer;
+            font-size: 10px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 255, 255, 0.1);
+            border-color: #00ffff;
+            box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .control-btn:hover::before {
+            left: 100%;
+        }
+
+        /* 顶部操作按钮 */
+        #topButtons {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .top-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            cursor: pointer;
+            font-size: 11px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+
+        .top-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        }
+
+        /* 加载指示器 */
         #loadingIndicator {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: cyan;
-            font-size: 24px;
             z-index: 1000;
+            background: rgba(10, 10, 10, 0.95);
+            padding: 30px;
+            border-radius: 16px;
+            border: 2px solid #00ffff;
             text-align: center;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            backdrop-filter: blur(30px);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+            min-width: 280px;
         }
-        
-        #loadingIndicator button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: rgba(0, 255, 255, 0.2);
-            border: 1px solid cyan;
-            color: cyan;
-            cursor: pointer;
-            font-size: 16px;
-            border-radius: 5px;
-            transition: all 0.3s;
-        }
-        
-        #loadingIndicator button:hover {
-            background: rgba(0, 255, 255, 0.4);
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
-        }
-        
-        .status-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 255, 255, 0.2);
+            border-top: 3px solid #00ffff;
             border-radius: 50%;
-            margin-right: 8px;
-            background: #00ff00;
-            box-shadow: 0 0 5px #00ff00;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
         }
-        
-        .status-indicator.inactive {
-            background: #ff0000;
-            box-shadow: 0 0 5px #ff0000;
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loadingText {
+            color: #00ffff;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        /* 状态提示 */
+        #stateToast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(0, 255, 255, 0.95);
+            color: #000;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.4);
+            text-transform: uppercase;
+        }
+
+        #stateToast.show {
+            opacity: 1;
+        }
+
+        #stateToast.error {
+            background: rgba(255, 68, 68, 0.95);
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(255, 68, 68, 0.4);
+        }
+
+        /* 信息提示 */
+        #infoTooltip {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ffff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 11px;
+            letter-spacing: 1px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            white-space: nowrap;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            font-weight: 600;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            #infoPanel, #controlPanel {
+                transform: scale(0.75);
+                width: 180px;
+            }
+            
+            #gestureIndicator {
+                transform: scale(0.75);
+                width: 130px;
+            }
+            
+            .top-btn {
+                padding: 6px 12px;
+                font-size: 9px;
+            }
+
+            #infoTooltip {
+                font-size: 9px;
+                padding: 8px 16px;
+                bottom: 10px;
+            }
+        }
+
+        /* 拖拽标题样式 */
+        #mainTitle {
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            text-align: center;
+            cursor: move;
+            user-select: none;
+            padding: 10px;
+            pointer-events: auto;
+        }
+
+        .title-line {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            color: #00ffff;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        .title-subline {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.5);
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 255, 0.8);
         }
     </style>
 </head>
 <body>
     <div id="canvasContainer"></div>
-    <div id="infoPanel">
-        <div><span class="status-indicator" id="statusIndicator"></span>状态: <span id="gestureStatus">初始化中...</span></div>
-        <div>粒子数量: <span style="color: #00ffff;">16,000</span></div>
-        <div>物理模型: <span style="color: #ffff00;">速度+加速度</span></div>
-        <div>帧率: <span id="fpsCounter">0</span> FPS</div>
-        <div style="margin-top: 8px; font-size: 12px; opacity: 0.7;">
-            💡 张手/挥动/推拉摄像头体验交互
+    
+    <!-- 标题 -->
+    <div id="mainTitle">
+        <h1 class="title-line">Particle System</h1>
+        <div class="title-subline">WebAR Gesture Control</div>
+    </div>
+
+    <!-- 顶部操作按钮 -->
+    <div id="topButtons">
+        <button class="top-btn" onclick="toggleFullScreen()">⛶ 全屏</button>
+        <button class="top-btn" onclick="toggleUI()">👁 隐藏UI</button>
+    </div>
+
+    <!-- 左侧信息面板 -->
+    <div id="infoPanel" class="glass-panel">
+        <h2>系统状态</h2>
+        <div class="status-item">
+            <span class="status-label">连接状态</span>
+            <span class="status-value"><span class="status-indicator" id="statusIndicator"></span><span id="gestureStatus">初始化中...</span></span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">粒子数量</span>
+            <span class="status-value" style="color: #00ffff;">16,000</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">物理模型</span>
+            <span class="status-value" style="color: #ffff00;">速度+加速度</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">帧率</span>
+            <span class="status-value" id="fpsCounter">0 FPS</span>
         </div>
     </div>
-    <div id="loadingIndicator">正在初始化系统...</div>
+
+    <!-- 右侧手势指示器 -->
+    <div id="gestureIndicator" class="glass-panel">
+        <h3>手势识别</h3>
+        <div class="gesture-icon" id="gestureIcon">✋</div>
+        <div class="gesture-name" id="gestureName">初始化中...</div>
+    </div>
+
+    <!-- 底部控制面板 -->
+    <div id="controlPanel" class="glass-panel">
+        <div class="control-title">快速切换</div>
+        <button class="control-btn" onclick="setGestureMode('open')">张手</button>
+        <button class="control-btn" onclick="setGestureMode('scissors')">剪刀</button>
+        <button class="control-btn" onclick="setGestureMode('fist')">握拳</button>
+        <button class="control-btn" onclick="setGestureMode('point')">食指</button>
+        <button class="control-btn" onclick="setGestureMode('thumbsUp')">大拇指</button>
+        <button class="control-btn" onclick="triggerExplosion()" style="grid-column: span 2; background: rgba(255, 68, 68, 0.1); border-color: rgba(255, 68, 68, 0.5); color: #ff4444;">💥 爆炸特效</button>
+    </div>
+
+    <!-- 信息提示 -->
+    <div id="infoTooltip">💡 张手/五指/握拳/食指/大拇指 | 挥手触发风暴 | 推拉改变深度</div>
+
+    <!-- 加载指示器 -->
+    <div id="loadingIndicator" style="display: none;">
+        <div class="loader"></div>
+        <div id="loadingText">正在初始化系统...</div>
+    </div>
+
+    <!-- 状态提示 -->
+    <div id="stateToast"></div>
 
     <!-- Three.js - 使用 unpkg 确保稳定加载 -->
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
@@ -1000,8 +1366,145 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
+        // ==================== UI 控制函数 ====================
+        window.toggleFullScreen = function() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        };
+
+        window.toggleUI = function() {
+            const uiElements = ['infoPanel', 'gestureIndicator', 'controlPanel', 'topButtons', 'mainTitle', 'infoTooltip'];
+            uiElements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    const currentDisplay = window.getComputedStyle(el).display;
+                    el.style.display = currentDisplay === 'none' ? 'block' : 'none';
+                }
+            });
+        };
+
+        window.setGestureMode = function(mode) {
+            if (isAnimating) return;
+            currentGesture = mode;
+            updateStatus(getGestureName(mode), true);
+            triggerExplosion();
+            showToast(getGestureName(mode));
+        };
+
+        window.triggerExplosion = function() {
+            triggerExplosion(); // 调用内部函数
+            showToast('💥 爆炸特效已触发');
+        };
+
+        // ==================== 拖拽标题功能 ====================
+        function initDraggableTitle() {
+            const title = document.getElementById('mainTitle');
+            let isDragging = false;
+            let startPos = { x: 0, y: 0 };
+            let offset = { x: 0, y: 0 };
+
+            title.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                const rect = title.getBoundingClientRect();
+                offset.x = e.clientX - rect.left;
+                offset.y = e.clientY - rect.top;
+                title.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const x = e.clientX - offset.x;
+                const y = e.clientY - offset.y;
+                title.style.left = x + 'px';
+                title.style.top = y + 'px';
+                title.style.transform = 'none';
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                title.style.cursor = 'move';
+            });
+
+            // 移动端支持
+            title.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                const touch = e.touches[0];
+                const rect = title.getBoundingClientRect();
+                offset.x = touch.clientX - rect.left;
+                offset.y = touch.clientY - rect.top;
+                e.preventDefault();
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const touch = e.touches[0];
+                const x = touch.clientX - offset.x;
+                const y = touch.clientY - offset.y;
+                title.style.left = x + 'px';
+                title.style.top = y + 'px';
+                title.style.transform = 'none';
+            });
+
+            window.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+        }
+
+        // ==================== 键盘快捷键 ====================
+        function initKeyboardShortcuts() {
+            window.addEventListener('keydown', (e) => {
+                // 如果在输入框中，不处理快捷键
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                switch(e.key.toLowerCase()) {
+                    case 'f':
+                        e.preventDefault();
+                        toggleFullScreen();
+                        break;
+                    case 'h':
+                        e.preventDefault();
+                        toggleUI();
+                        break;
+                    case '1':
+                        setGestureMode('open');
+                        break;
+                    case '2':
+                        setGestureMode('scissors');
+                        break;
+                    case '3':
+                        setGestureMode('fist');
+                        break;
+                    case '4':
+                        setGestureMode('point');
+                        break;
+                    case '5':
+                        setGestureMode('thumbsUp');
+                        break;
+                    case 'e':
+                        triggerExplosion();
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        // 切换到下一个模式
+                        const gestures = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
+                        const currentIndex = gestures.indexOf(currentGesture);
+                        const nextIndex = (currentIndex + 1) % gestures.length;
+                        setGestureMode(gestures[nextIndex]);
+                        break;
+                }
+            });
+        }
+
         // ==================== 启动 ====================
-        window.addEventListener('load', init);
+        window.addEventListener('load', () => {
+            init();
+            initDraggableTitle();
+            initKeyboardShortcuts();
+        });
     </script>
 </body>
 </html>

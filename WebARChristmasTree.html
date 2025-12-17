@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            background: #050505;
             overflow: hidden;
             width: 100vw;
             height: 100vh;
@@ -29,120 +29,302 @@
             z-index: 1;
         }
 
-        /* 辉光背景层 */
+        /* 辉光背景层 - 增强版 */
         .glow-background {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80%;
-            height: 80%;
-            background: radial-gradient(ellipse at center, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
-            filter: blur(40px);
-            opacity: 0.6;
+            width: 90%;
+            height: 90%;
+            background: radial-gradient(ellipse at center, rgba(212, 175, 55, 0.12) 0%, rgba(16, 185, 129, 0.08) 40%, transparent 70%);
+            filter: blur(50px);
+            opacity: 0.5;
             z-index: 0;
-            animation: pulse 4s ease-in-out infinite;
+            animation: pulse 6s ease-in-out infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
-            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+            0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.15); }
         }
 
-        /* UI面板 */
+        /* 玻璃拟态面板 */
+        .glass-panel {
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.15), inset -0.5px -0.5px 0px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* 左侧信息面板 */
         #uiPanel {
             position: fixed;
-            top: 20px;
-            left: 20px;
+            top: 15px;
+            left: 15px;
+            width: 220px;
+            padding: 12px;
             z-index: 100;
-            background: rgba(10, 10, 10, 0.8);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(212, 175, 55, 0.3);
-            backdrop-filter: blur(20px);
-            min-width: 280px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transform-origin: top left;
         }
 
         #uiPanel h2 {
             color: #D4AF37;
-            margin-bottom: 15px;
-            font-size: 18px;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-align: center;
             text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: 1px;
         }
 
         .status-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin: 8px 0;
-            padding: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
+            margin: 4px 0;
+            padding: 4px 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            font-size: 11px;
             border-left: 3px solid #D4AF37;
         }
 
         .status-label {
             color: #aaa;
-            font-size: 12px;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
 
         .status-value {
             color: #fff;
-            font-weight: bold;
-            font-size: 14px;
-            text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
-        }
-
-        .tree-state {
-            color: #10b981 !important;
             font-weight: 700;
-            text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
         }
 
-        .gesture-detect {
-            color: #ef4444 !important;
-            font-weight: 700;
-            text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+        .status-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #ff0000;
+            box-shadow: 0 0 4px #ff0000;
+            animation: blink 1.5s ease-in-out infinite;
         }
 
-        /* 上传按钮 */
-        #uploadContainer {
+        .status-indicator.active {
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+            animation: none;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 右侧手势指示器 */
+        #gestureIndicator {
             position: fixed;
-            bottom: 20px;
-            left: 20px;
+            top: 15px;
+            right: 15px;
+            width: 160px;
+            padding: 12px;
+            z-index: 100;
+            transform: scale(0.9);
+            transform-origin: top right;
+            text-align: center;
+        }
+
+        #gestureIndicator h3 {
+            color: #ef4444;
+            font-size: 12px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+        }
+
+        .gesture-icon {
+            font-size: 36px;
+            margin: 6px 0;
+            filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+        }
+
+        .gesture-name {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            text-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+            margin-top: 4px;
+        }
+
+        /* 顶部操作按钮 */
+        #topButtons {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 100;
             display: flex;
-            gap: 10px;
+            gap: 8px;
+        }
+
+        .top-btn {
+            padding: 8px 16px;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            color: #D4AF37;
+            cursor: pointer;
+            font-size: 11px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+
+        .top-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: #D4AF37;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+        }
+
+        /* 底部控制面板 */
+        #controlPanel {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            padding: 10px;
+            z-index: 100;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 220px;
+            transform: scale(0.9);
+            transform-origin: bottom left;
+        }
+
+        .control-title {
+            grid-column: span 2;
+            font-size: 10px;
+            color: #D4AF37;
+            text-align: center;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            padding-bottom: 3px;
+        }
+
+        .control-btn {
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            color: #D4AF37;
+            cursor: pointer;
+            font-size: 10px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-btn:hover {
+            background: rgba(212, 175, 55, 0.1);
+            border-color: #D4AF37;
+            box-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .control-btn:hover::before {
+            left: 100%;
+        }
+
+        .control-btn.primary {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #10b981;
+        }
+
+        .control-btn.primary:hover {
+            background: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .control-btn.danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .control-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+        }
+
+        /* 上传面板 */
+        #uploadPanel {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            padding: 10px;
+            z-index: 100;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 220px;
+            transform: scale(0.9);
+            transform-origin: bottom right;
         }
 
         .upload-btn {
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
-            color: #000;
-            border: none;
-            border-radius: 10px;
+            padding: 8px;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            color: #D4AF37;
             cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+            font-size: 10px;
+            border-radius: 4px;
             transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
             position: relative;
             overflow: hidden;
         }
 
         .upload-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6);
-        }
-
-        .upload-btn:active {
-            transform: translateY(0);
+            background: rgba(212, 175, 55, 0.2);
+            border-color: #D4AF37;
+            box-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
+            transform: translateY(-1px);
         }
 
         .upload-btn::before {
@@ -152,7 +334,7 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
             transition: left 0.5s;
         }
 
@@ -160,46 +342,14 @@
             left: 100%;
         }
 
-        #fileInput {
-            display: none;
-        }
-
-        /* 手势指示器 */
-        #gestureIndicator {
-            position: fixed;
-            top: 50%;
-            right: 30px;
-            transform: translateY(-50%);
-            z-index: 100;
-            background: rgba(10, 10, 10, 0.9);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            backdrop-filter: blur(20px);
-            min-width: 200px;
-            text-align: center;
-        }
-
-        #gestureIndicator h3 {
-            color: #ef4444;
-            margin-bottom: 15px;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .gesture-icon {
-            font-size: 48px;
-            margin: 10px 0;
-            filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.6));
-        }
-
-        .gesture-name {
-            color: #fff;
-            font-size: 18px;
-            font-weight: 700;
-            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
-            margin-top: 10px;
+        .upload-btn input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
         }
 
         /* 加载指示器 */
@@ -210,19 +360,21 @@
             transform: translate(-50%, -50%);
             z-index: 1000;
             background: rgba(10, 10, 10, 0.95);
-            padding: 40px;
-            border-radius: 20px;
+            padding: 30px;
+            border-radius: 16px;
             border: 2px solid #D4AF37;
             text-align: center;
             backdrop-filter: blur(30px);
             box-shadow: 0 0 50px rgba(212, 175, 55, 0.3);
+            min-width: 280px;
+            display: none;
         }
 
         .loader {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(212, 175, 55, 0.2);
-            border-top: 4px solid #D4AF37;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(212, 175, 55, 0.2);
+            border-top: 3px solid #D4AF37;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
@@ -235,7 +387,7 @@
 
         #loadingText {
             color: #D4AF37;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             letter-spacing: 2px;
             text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
@@ -250,9 +402,9 @@
             z-index: 200;
             background: rgba(16, 185, 129, 0.95);
             color: white;
-            padding: 20px 40px;
-            border-radius: 15px;
-            font-size: 24px;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 20px;
             font-weight: 700;
             letter-spacing: 2px;
             opacity: 0;
@@ -274,98 +426,193 @@
         /* 信息提示 */
         #infoTooltip {
             position: fixed;
-            bottom: 80px;
+            bottom: 15px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
             background: rgba(0, 0, 0, 0.8);
             color: #D4AF37;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-size: 13px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 11px;
             letter-spacing: 1px;
             border: 1px solid rgba(212, 175, 55, 0.3);
             backdrop-filter: blur(10px);
             white-space: nowrap;
             text-shadow: 0 0 5px rgba(212, 175, 55, 0.5);
+            font-weight: 600;
+        }
+
+        /* 拖拽标题样式 */
+        #mainTitle {
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            text-align: center;
+            cursor: move;
+            user-select: none;
+            padding: 10px;
+            pointer-events: auto;
+        }
+
+        .title-line {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            color: #D4AF37;
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        .title-subline {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        /* 照片管理器 */
+        #photoManager {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .manager-title {
+            color: #D4AF37;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #photoGrid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            width: 70%;
+            max-height: 60%;
+            overflow-y: auto;
+            justify-content: center;
+            padding: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            margin: 20px 0;
+        }
+
+        .photo-item {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            border: 1px solid #D4AF37;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .photo-item:hover {
+            transform: scale(1.1);
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+        }
+
+        .photo-thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .delete-x {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
+            background: #900;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 18px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            border: 1px solid #fff;
+        }
+
+        .manager-actions {
+            display: flex;
+            gap: 10px;
         }
 
         /* 响应式调整 */
         @media (max-width: 768px) {
-            #uiPanel {
-                top: 10px;
-                left: 10px;
-                padding: 15px;
-                min-width: 220px;
-                font-size: 12px;
+            #uiPanel, #controlPanel, #uploadPanel {
+                transform: scale(0.75);
+                width: 180px;
             }
-
+            
             #gestureIndicator {
-                right: 10px;
-                padding: 15px;
-                min-width: 150px;
+                transform: scale(0.75);
+                width: 130px;
             }
-
-            .gesture-icon {
-                font-size: 32px;
-            }
-
-            #uploadContainer {
-                bottom: 10px;
-                left: 10px;
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .upload-btn {
-                padding: 10px 18px;
-                font-size: 12px;
+            
+            .top-btn {
+                padding: 6px 12px;
+                font-size: 9px;
             }
 
             #infoTooltip {
-                bottom: 60px;
-                font-size: 11px;
+                font-size: 9px;
                 padding: 8px 16px;
+                bottom: 10px;
+            }
+
+            #photoGrid {
+                width: 90%;
+                gap: 10px;
+            }
+
+            .photo-item {
+                width: 60px;
+                height: 60px;
+            }
+
+            .manager-title {
+                font-size: 16px;
             }
         }
 
-        /* 摄像头状态指示器 */
-        .camera-status {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-            background: #ef4444;
-            box-shadow: 0 0 5px #ef4444;
-            animation: blink 1.5s ease-in-out infinite;
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
         }
 
-        .camera-status.active {
-            background: #10b981;
-            box-shadow: 0 0 8px #10b981;
-            animation: none;
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(212, 175, 55, 0.5);
+            border-radius: 2px;
         }
 
-        /* 照片上传区域 */
-        .photo-count {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-left: 8px;
-        }
-
-        .photo-count.has-photos {
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(212, 175, 55, 0.8);
         }
     </style>
 </head>
@@ -406,12 +653,50 @@
         <div class="gesture-name" id="gestureName">初始化中...</div>
     </div>
 
-    <!-- 上传按钮 -->
-    <div id="uploadContainer">
+    <!-- 拖拽标题 -->
+    <div id="mainTitle">
+        <h1 class="title-line">🎄 手势控制3D圣诞树</h1>
+        <div class="title-subline">WebAR 交互系统</div>
+    </div>
+
+    <!-- 顶部操作按钮 -->
+    <div id="topButtons">
+        <button class="top-btn" onclick="toggleFullScreen()">⛶ 全屏</button>
+        <button class="top-btn" onclick="toggleUI()">👁️ 隐藏UI</button>
+        <button class="top-btn" onclick="showHelp()">❓ 帮助</button>
+    </div>
+
+    <!-- 上传面板 -->
+    <div id="uploadPanel">
+        <div class="control-title">照片管理</div>
         <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
             📸 上传照片
         </button>
-        <input type="file" id="fileInput" accept="image/*" multiple>
+        <button class="upload-btn" onclick="openPhotoManager()">
+            🖼️ 管理照片
+        </button>
+        <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
+    </div>
+
+    <!-- 底部控制面板 -->
+    <div id="controlPanel">
+        <div class="control-title">状态控制</div>
+        <button class="control-btn" onclick="setFoldedState()">⏸️ 合拢</button>
+        <button class="control-btn primary" onclick="setScatteredState()">▶️ 散开</button>
+        <button class="control-btn" onclick="setPhotoFocusState()">📸 照片</button>
+        <button class="control-btn" onclick="toggleAutoRotate()">🔄 自动旋转</button>
+        <button class="control-btn danger" onclick="resetAll()">♻️ 重置</button>
+        <button class="control-btn" onclick="toggleBloom()">✨ 辉光</button>
+    </div>
+
+    <!-- 照片管理器 -->
+    <div id="photoManager">
+        <h2 class="manager-title">📷 照片管理器</h2>
+        <div id="photoGrid"></div>
+        <div class="manager-actions">
+            <button class="control-btn danger" onclick="clearAllPhotos()">清空所有</button>
+            <button class="control-btn" onclick="closePhotoManager()">关闭</button>
+        </div>
     </div>
 
     <!-- 信息提示 -->
@@ -1395,8 +1680,356 @@
             }
         }
 
+        // ==================== UI控制函数 ====================
+        
+        // 全屏切换
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    showToast('进入全屏模式');
+                }).catch(() => {
+                    showToast('全屏请求失败', true);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    showToast('退出全屏模式');
+                });
+            }
+        }
+
+        // UI显示/隐藏
+        let uiVisible = true;
+        function toggleUI() {
+            uiVisible = !uiVisible;
+            const elements = [
+                'uiPanel', 'gestureIndicator', 'topButtons', 
+                'controlPanel', 'uploadPanel', 'infoTooltip', 'mainTitle'
+            ];
+            
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.opacity = uiVisible ? '1' : '0';
+                    el.style.pointerEvents = uiVisible ? 'auto' : 'none';
+                }
+            });
+            
+            showToast(uiVisible ? 'UI显示' : 'UI隐藏');
+        }
+
+        // 显示帮助
+        function showHelp() {
+            alert(`🎄 手势控制3D圣诞树 使用说明
+
+🎮 手势操作：
+✊ 握拳 → 合拢态（圣诞树成形）
+✋ 五指张开 → 散开态（元素漂浮）
+🤏 抓取 → 选择最近的照片并放大
+🔄 旋转 → 在散开态下移动手部旋转相机
+
+⌨️ 键盘快捷键：
+[1] 合拢态
+[2] 散开态
+[3] 照片放大态
+[空格] 循环切换状态
+
+📸 照片管理：
+1. 点击"上传照片"按钮选择图片
+2. 使用"管理照片"查看和删除
+3. 抓取手势自动选择最近的照片
+
+💡 提示：
+• 需要摄像头权限才能使用手势控制
+• 如果摄像头不可用，系统会自动进入8秒循环演示模式
+• 点击"隐藏UI"可隐藏界面元素，再次点击显示
+• 拖动顶部标题可移动其位置`);
+        }
+
+        // 状态控制函数
+        function setFoldedState() {
+            if (!isAnimating) {
+                switchState(TreeStates.FOLDED);
+            }
+        }
+
+        function setScatteredState() {
+            if (!isAnimating) {
+                switchState(TreeStates.SCATTERED);
+            }
+        }
+
+        function setPhotoFocusState() {
+            if (!isAnimating) {
+                if (photoTextures.length > 0) {
+                    if (selectedPhoto === null) {
+                        selectedPhoto = 0;
+                    }
+                    switchState(TreeStates.PHOTO_FOCUS);
+                } else {
+                    showToast('请先上传照片', true);
+                }
+            }
+        }
+
+        // 自动旋转切换
+        let autoRotateEnabled = false;
+        function toggleAutoRotate() {
+            autoRotateEnabled = !autoRotateEnabled;
+            
+            if (autoRotateEnabled) {
+                // 启用自动旋转 - 修改targetCameraRotation
+                const rotateInterval = setInterval(() => {
+                    if (!autoRotateEnabled) {
+                        clearInterval(rotateInterval);
+                        return;
+                    }
+                    targetCameraRotation.y += 0.01;
+                }, 50);
+                showToast('自动旋转已启用');
+            } else {
+                showToast('自动旋转已禁用');
+            }
+        }
+
+        // 重置所有
+        function resetAll() {
+            if (confirm('确定要重置所有状态吗？这将清除照片并重置相机。')) {
+                // 清除照片
+                photoTextures.forEach(pt => {
+                    if (pt.texture) pt.texture.dispose();
+                });
+                photoTextures = [];
+                selectedPhoto = null;
+                
+                // 重置照片对象材质
+                treeObjects.forEach(obj => {
+                    if (obj.userData.type === 'photo') {
+                        obj.material.map = null;
+                        obj.material.color = new THREE.Color(0x333333);
+                        obj.material.emissive = new THREE.Color(0x222222);
+                        obj.material.emissiveIntensity = 0.2;
+                        obj.material.needsUpdate = true;
+                        obj.userData.hasTexture = false;
+                        obj.scale.set(1, 1, 1);
+                    }
+                });
+                
+                // 重置相机
+                targetCameraRotation = { x: 0, y: 0 };
+                cameraRotation = { x: 0, y: 0 };
+                
+                // 切换到合拢态
+                if (!isAnimating) {
+                    switchState(TreeStates.FOLDED);
+                }
+                
+                updatePhotoCount();
+                showToast('系统已重置');
+            }
+        }
+
+        // 辉光切换
+        let bloomEnabled = true;
+        function toggleBloom() {
+            bloomEnabled = !bloomEnabled;
+            
+            if (bloomPass) {
+                bloomPass.strength = bloomEnabled ? 1.5 : 0;
+                showToast(bloomEnabled ? '辉光已启用' : '辉光已禁用');
+            }
+        }
+
+        // 照片管理器
+        function openPhotoManager() {
+            if (photoTextures.length === 0) {
+                showToast('没有照片可管理', true);
+                return;
+            }
+            
+            const manager = document.getElementById('photoManager');
+            const grid = document.getElementById('photoGrid');
+            
+            // 清空网格
+            grid.innerHTML = '';
+            
+            // 添加照片缩略图
+            photoTextures.forEach(pt => {
+                const item = document.createElement('div');
+                item.className = 'photo-item';
+                item.innerHTML = `
+                    <img class="photo-thumb" src="${pt.texture.image.src}" alt="照片${pt.index + 1}">
+                    <div class="delete-x" onclick="deletePhoto(${pt.index})">×</div>
+                `;
+                
+                // 点击缩略图选择照片
+                item.onclick = (e) => {
+                    if (e.target.className !== 'delete-x') {
+                        selectedPhoto = pt.index;
+                        if (currentState === TreeStates.PHOTO_FOCUS) {
+                            // 立即更新位置
+                            treeObjects.forEach(obj => {
+                                if (obj.userData.type === 'photo') {
+                                    if (obj.userData.index === selectedPhoto) {
+                                        obj.position.set(0, 0, 5);
+                                        obj.scale.set(2.5, 2.5, 2.5);
+                                        if (obj.material.emissive) {
+                                            obj.material.emissive.setHex(CONFIG.COLORS.GOLD);
+                                            obj.material.emissiveIntensity = 0.5;
+                                        }
+                                    } else {
+                                        obj.scale.set(0.3, 0.3, 0.3);
+                                        if (obj.material.emissive) {
+                                            obj.material.emissiveIntensity = 0.1;
+                                        }
+                                    }
+                                }
+                            });
+                            showToast(`已切换到照片 #${pt.index + 1}`);
+                        } else {
+                            showToast(`选中照片 #${pt.index + 1}`);
+                        }
+                        closePhotoManager();
+                    }
+                };
+                
+                grid.appendChild(item);
+            });
+            
+            manager.style.display = 'flex';
+        }
+
+        function closePhotoManager() {
+            const manager = document.getElementById('photoManager');
+            manager.style.display = 'none';
+        }
+
+        function deletePhoto(index) {
+            if (confirm(`确定要删除照片 #${index + 1} 吗？`)) {
+                // 找到对应的照片纹理
+                const ptIndex = photoTextures.findIndex(pt => pt.index === index);
+                if (ptIndex !== -1) {
+                    const pt = photoTextures[ptIndex];
+                    
+                    // 释放纹理资源
+                    if (pt.texture) pt.texture.dispose();
+                    photoTextures.splice(ptIndex, 1);
+                    
+                    // 重置照片对象
+                    const photoObj = treeObjects.find(obj => 
+                        obj.userData.type === 'photo' && obj.userData.index === index
+                    );
+                    if (photoObj) {
+                        photoObj.material.map = null;
+                        photoObj.material.color = new THREE.Color(0x333333);
+                        photoObj.material.emissive = new THREE.Color(0x222222);
+                        photoObj.material.emissiveIntensity = 0.2;
+                        photoObj.material.needsUpdate = true;
+                        photoObj.userData.hasTexture = false;
+                        photoObj.scale.set(1, 1, 1);
+                    }
+                    
+                    // 如果删除的是选中照片，清除选中状态
+                    if (selectedPhoto === index) {
+                        selectedPhoto = null;
+                    }
+                    
+                    // 更新UI
+                    updatePhotoCount();
+                    showToast(`照片 #${index + 1} 已删除`);
+                    
+                    // 刷新管理器
+                    if (document.getElementById('photoManager').style.display === 'flex') {
+                        openPhotoManager();
+                    }
+                }
+            }
+        }
+
+        function clearAllPhotos() {
+            if (confirm('确定要清空所有照片吗？')) {
+                // 释放所有纹理资源
+                photoTextures.forEach(pt => {
+                    if (pt.texture) pt.texture.dispose();
+                });
+                photoTextures = [];
+                selectedPhoto = null;
+                
+                // 重置所有照片对象
+                treeObjects.forEach(obj => {
+                    if (obj.userData.type === 'photo') {
+                        obj.material.map = null;
+                        obj.material.color = new THREE.Color(0x333333);
+                        obj.material.emissive = new THREE.Color(0x222222);
+                        obj.material.emissiveIntensity = 0.2;
+                        obj.material.needsUpdate = true;
+                        obj.userData.hasTexture = false;
+                        obj.scale.set(1, 1, 1);
+                    }
+                });
+                
+                updatePhotoCount();
+                showToast('所有照片已清空');
+                closePhotoManager();
+            }
+        }
+
+        // 拖拽标题功能
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        function initDraggableTitle() {
+            const title = document.getElementById('mainTitle');
+            
+            title.addEventListener('mousedown', startDrag);
+            title.addEventListener('touchstart', startDrag, { passive: false });
+            
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+            
+            function startDrag(e) {
+                isDragging = true;
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                const rect = title.getBoundingClientRect();
+                
+                dragOffset.x = clientX - rect.left;
+                dragOffset.y = clientY - rect.top;
+                
+                e.preventDefault();
+            }
+            
+            function drag(e) {
+                if (!isDragging) return;
+                
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                
+                const x = clientX - dragOffset.x;
+                const y = clientY - dragOffset.y;
+                
+                title.style.left = x + 'px';
+                title.style.top = y + 'px';
+                title.style.transform = 'none';
+                title.style.right = 'auto';
+                title.style.bottom = 'auto';
+                
+                e.preventDefault();
+            }
+            
+            function endDrag() {
+                isDragging = false;
+            }
+        }
+
         // ==================== 启动应用 ====================
-        window.addEventListener('load', init);
+        window.addEventListener('load', () => {
+            init();
+            // 延迟初始化拖拽，确保DOM完全加载
+            setTimeout(initDraggableTitle, 100);
+        });
     </script>
 </body>
 </html>
