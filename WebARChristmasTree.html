@@ -537,6 +537,36 @@
             letter-spacing: 1px;
         }
 
+        /* 状态指示器样式（添加缺失的样式） */
+        .camera-status {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #ff0000;
+            box-shadow: 0 0 4px #ff0000;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .camera-status.active {
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+            animation: none;
+        }
+
+        /* 照片数量样式（添加缺失的样式） */
+        .photo-count {
+            font-size: 9px;
+            color: #666;
+            margin-left: 4px;
+        }
+
+        .photo-count.has-photos {
+            color: #D4AF37;
+            font-weight: 600;
+        }
+
         /* 照片管理器 */
         #photoManager {
             position: fixed;
@@ -735,6 +765,12 @@
         <h3>手势识别</h3>
         <div class="gesture-icon" id="gestureIcon">✋</div>
         <div class="gesture-name" id="gestureName">初始化中...</div>
+    </div>
+
+    <!-- 拖拽标题 -->
+    <div id="mainTitle">
+        <h1 class="title-line">圣诞树 AR</h1>
+        <div class="title-subline">手势控制 3D 交互</div>
     </div>
 
     <!-- 顶部操作按钮 -->
@@ -1696,13 +1732,29 @@
             stateEl.textContent = stateNames[currentState] || currentState;
         }
 
+        function updateStatus(text, active) {
+            const statusEl = document.getElementById('gestureStatus');
+            const indicator = document.getElementById('statusIndicator');
+
+            if (statusEl) {
+                statusEl.textContent = text;
+                statusEl.style.color = active ? '#00ff00' : '#ffaa00';
+            }
+
+            if (indicator) {
+                indicator.className = active ? 'status-indicator' : 'status-indicator inactive';
+            }
+        }
+
         function updateGestureDisplay(gesture) {
             const statusEl = document.getElementById('gestureStatus');
             const iconEl = document.getElementById('gestureIcon');
             const nameEl = document.getElementById('gestureName');
 
             if (!gesture) {
-                statusEl.innerHTML = '<span class="camera-status active"></span>检测中...';
+                if (statusEl && !statusEl.textContent.includes('自动')) {
+                    statusEl.innerHTML = '<span class="camera-status active"></span>检测中...';
+                }
                 iconEl.textContent = '✋';
                 nameEl.textContent = '等待手势...';
                 return;
@@ -1717,8 +1769,10 @@
 
             const info = gestureInfo[gesture];
             if (info) {
-                statusEl.innerHTML = `<span class="camera-status active"></span>${info.name}`;
-                statusEl.style.color = info.color;
+                if (statusEl && !statusEl.textContent.includes('自动')) {
+                    statusEl.innerHTML = `<span class="camera-status active"></span>${info.name}`;
+                    statusEl.style.color = info.color;
+                }
                 iconEl.textContent = info.icon;
                 nameEl.textContent = info.name;
             }

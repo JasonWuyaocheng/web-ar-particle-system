@@ -246,7 +246,7 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
 
-        /* 进度指示器 - 新增 */
+        /* 进度指示器 */
         #progressIndicator {
             position: fixed;
             top: 50%;
@@ -401,35 +401,6 @@
             font-weight: 600;
         }
 
-        /* 响应式调整 */
-        @media (max-width: 768px) {
-            #infoPanel, #controlPanel {
-                transform: scale(0.75);
-                width: 180px;
-            }
-            
-            #gestureIndicator {
-                transform: scale(0.75);
-                width: 130px;
-            }
-            
-            .top-btn {
-                padding: 6px 12px;
-                font-size: 9px;
-            }
-
-            #infoTooltip {
-                font-size: 9px;
-                padding: 8px 16px;
-                bottom: 10px;
-            }
-
-            #progressIndicator {
-                min-width: 280px;
-                padding: 30px;
-            }
-        }
-
         /* 拖拽标题样式 */
         #mainTitle {
             position: fixed;
@@ -459,6 +430,35 @@
             color: #888;
             margin-top: 4px;
             letter-spacing: 1px;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            #infoPanel, #controlPanel {
+                transform: scale(0.75);
+                width: 180px;
+            }
+            
+            #gestureIndicator {
+                transform: scale(0.75);
+                width: 130px;
+            }
+            
+            .top-btn {
+                padding: 6px 12px;
+                font-size: 9px;
+            }
+
+            #infoTooltip {
+                font-size: 9px;
+                padding: 8px 16px;
+                bottom: 10px;
+            }
+
+            #progressIndicator {
+                min-width: 280px;
+                padding: 30px;
+            }
         }
 
         /* 滚动条样式 */
