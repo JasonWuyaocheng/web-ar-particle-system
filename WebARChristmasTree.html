@@ -11,183 +11,843 @@
         body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Microsoft YaHei', 'Songti SC', serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         
-        /* ================= 2. UI 视觉 ================= */
+        /* ================= 2. 全新UI设计系统 ================= */
         :root {
-            --glass-bg: rgba(20, 20, 25, 0.75);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-highlight: rgba(255, 255, 255, 0.15);
-            --accent-gold: #d4af37;
-            --accent-gold-gradient: linear-gradient(135deg, #fceea7 0%, #d4af37 100%);
-            --text-main: #ffffff;
-            --text-sub: #b0b0b5;
-            --panel-width: 210px;
-            --ui-scale: 0.9; 
+            /* 调色板 - 奢华圣诞主题 */
+            --bg-dark: #0a0a0a;
+            --bg-glass: rgba(15, 15, 20, 0.72);
+            --bg-glass-hover: rgba(25, 25, 35, 0.85);
+            
+            --gold-primary: #d4af37;
+            --gold-light: #fceea7;
+            --gold-dark: #b8941f;
+            --gold-glow: rgba(212, 175, 55, 0.4);
+            
+            --red-accent: #c41e3a;
+            --green-accent: #0d5c2f;
+            --white-pure: #ffffff;
+            --white-dim: #b8b8b8;
+            
+            /* 尺寸系统 */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 12px;
+            --spacing-lg: 16px;
+            --spacing-xl: 20px;
+            
+            /* 布局 */
+            --sidebar-width: 240px;
+            --control-height: 36px;
+            --ui-scale: 0.95;
         }
 
-        @media screen and (max-height: 800px) { :root { --ui-scale: 0.8; } }
+        @media screen and (max-height: 800px) { :root { --ui-scale: 0.85; } }
         @media screen and (min-width: 2000px) { :root { --ui-scale: 1.1; } }
         :fullscreen { --ui-scale: 1.0; }
 
+        /* 玻璃拟态基础 */
         .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(40px) saturate(180%);
-            -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border-radius: 16px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0.5px 0.5px 0px var(--glass-highlight), inset -0.5px -0.5px 0px rgba(0,0,0,0.5);
-            border: 1px solid var(--glass-border);
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
             overflow: hidden;
             box-sizing: border-box;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        #left-sidebar, .bottom-left-panel { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .panel-hidden { transform: translateX(calc(-1 * var(--panel-width) - 50px)) scale(var(--ui-scale)) !important; opacity: 0 !important; pointer-events: none !important; }
+        .glass-panel:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--gold-glow);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px var(--gold-glow);
+        }
+
+        /* 动画过渡 */
+        #left-sidebar, .bottom-left-panel, #top-right-controls { 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        
+        .panel-hidden { 
+            transform: translateX(calc(-1 * var(--sidebar-width) - 40px)) scale(var(--ui-scale)) !important; 
+            opacity: 0 !important; 
+            pointer-events: none !important; 
+        }
+        
         .hidden { display: none !important; }
 
-        #left-sidebar { position: absolute; top: 15px; left: 15px; width: var(--panel-width); height: calc(100vh - 30px); display: flex; flex-direction: column; gap: 8px; z-index: 20; pointer-events: none; transform: scale(var(--ui-scale)); transform-origin: top left; }
-        .scroll-content { flex: 1; overflow-y: auto; pointer-events: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; }
-        .scroll-content::-webkit-scrollbar { display: none; }
+        /* ================= 3. 主要UI容器 ================= */
+        
+        /* 右上角控制组 */
+        #top-right-controls { 
+            position: absolute; 
+            top: var(--spacing-lg); 
+            right: var(--spacing-lg); 
+            pointer-events: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-sm); 
+            align-items: flex-end; 
+            z-index: 50; 
+            transform: scale(var(--ui-scale));
+            transform-origin: top right;
+        }
 
-        .bottom-left-panel { position: absolute; bottom: 15px; left: 15px; pointer-events: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; width: var(--panel-width); padding: 10px; box-sizing: border-box; transform: scale(var(--ui-scale)); transform-origin: bottom left; }
-        .bottom-left-panel .ui-title-main { grid-column: span 2; font-size: 11px; margin-bottom: 4px; padding-bottom: 2px; }
-        .bottom-left-panel .elegant-btn { width: 100%; font-size: 10px; height: 28px; }
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            color: var(--gold-light);
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: var(--radius-sm);
+            font-family: 'Microsoft YaHei', sans-serif;
+            backdrop-filter: blur(8px);
+        }
 
-        .bottom-left-panel .elegant-btn { width: 100%; font-size: 10px; height: 28px; position: relative; }
-        .elegant-btn input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .icon-btn:hover {
+            background: rgba(212, 175, 55, 0.15);
+            border-color: var(--gold-primary);
+            color: var(--white-pure);
+            box-shadow: 0 0 16px var(--gold-glow);
+            transform: translateY(-1px);
+        }
 
-        .ui-title-main { font-family: 'SimSun', 'Songti SC', serif; font-size: 14px; font-weight: bold; color: #fff1c1; text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); border-bottom: 1px solid rgba(212, 175, 55, 0.2); padding-bottom: 4px; margin-bottom: 6px; letter-spacing: 2px; text-align: center; }
-        .ui-title-sub { font-size: 12px; color: #b0b0b5; margin-top: 6px; margin-bottom: 3px; letter-spacing: 1px; font-weight: 700; text-transform: uppercase; }
-        .control-label { color: #aaa; font-size: 11px; font-weight: 700; }
-        .control-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 5px; }
-        .control-row { display: flex; flex-direction: column; gap: 1px; margin-bottom: 4px; }
+        .icon-btn:active {
+            transform: translateY(0);
+        }
 
-        .particle-scroll-container { max-height: 140px; overflow-y: auto; padding-right: 4px; margin-right: -4px; border-left: 2px solid rgba(212,175,55,0.1); padding-left: 6px; }
-        .particle-scroll-container::-webkit-scrollbar { width: 3px; }
-        .particle-scroll-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 2px; }
-        .particle-scroll-container::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.4); border-radius: 2px; }
+        /* 左侧主边栏 */
+        #left-sidebar { 
+            position: absolute; 
+            top: var(--spacing-lg); 
+            left: var(--spacing-lg); 
+            width: var(--sidebar-width); 
+            height: calc(100vh - var(--spacing-xl) * 2); 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-sm); 
+            z-index: 20; 
+            pointer-events: none; 
+            transform: scale(var(--ui-scale)); 
+            transform-origin: top left; 
+        }
 
-        .elegant-btn { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(212, 175, 55, 0.3); color: #d4af37; padding: 5px 0; cursor: pointer; text-transform: uppercase; font-size: 10px; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; border-radius: 4px; box-sizing: border-box; position: relative; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; text-decoration: none; }
-        .elegant-btn:hover { background: rgba(212, 175, 55, 0.1); border-color: #fff1c1; color: #fff; box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); text-shadow: 0 0 5px rgba(255, 255, 255, 0.8); }
-        .elegant-btn:active { transform: scale(0.98); }
-        .btn-red { border-color: #844; color: #eaa; }
-        .btn-red:hover { background: #522; box-shadow: 0 0 15px rgba(255, 50, 50, 0.3); }
+        .scroll-content { 
+            flex: 1; 
+            overflow-y: auto; 
+            pointer-events: auto; 
+            padding: var(--spacing-sm); 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-sm); 
+            scrollbar-width: thin; 
+            scrollbar-color: var(--gold-primary) transparent;
+        }
 
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 3px 0; }
+        .scroll-content::-webkit-scrollbar { width: 4px; }
+        .scroll-content::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 2px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: var(--gold-primary); border-radius: 2px; }
+
+        /* 底部左侧面板 */
+        .bottom-left-panel { 
+            position: absolute; 
+            bottom: var(--spacing-lg); 
+            left: var(--spacing-lg); 
+            pointer-events: auto; 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: var(--spacing-xs); 
+            width: var(--sidebar-width); 
+            padding: var(--spacing-sm); 
+            box-sizing: border-box; 
+            transform: scale(var(--ui-scale)); 
+            transform-origin: bottom left; 
+        }
+
+        /* ================= 4. 标题和文字系统 ================= */
+        #title-container { 
+            position: absolute; 
+            top: 8%; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            text-align: center; 
+            pointer-events: auto; 
+            cursor: move; 
+            z-index: 50; 
+            user-select: none; 
+            padding: var(--spacing-sm) var(--spacing-lg);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+        }
+
+        #title-container:hover {
+            background: rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .title-line { 
+            margin: 2px 0; 
+            transition: all 0.3s ease; 
+            white-space: nowrap; 
+            color: var(--gold-light); 
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px var(--gold-glow);
+            letter-spacing: 2px;
+            font-weight: 300;
+        }
+
+        /* ================= 5. 标题和分组 ================= */
+        .section-title { 
+            font-size: 13px; 
+            font-weight: 700; 
+            color: var(--gold-primary); 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px; 
+            padding: var(--spacing-xs) var(--spacing-sm);
+            margin: var(--spacing-sm) 0 var(--spacing-xs);
+            border-left: 3px solid var(--gold-primary);
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+
+        .subsection-title {
+            font-size: 11px;
+            color: var(--white-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: var(--spacing-md);
+            margin-bottom: var(--spacing-xs);
+            opacity: 0.8;
+            font-weight: 600;
+        }
+
+        /* ================= 6. 控件样式 ================= */
+        
+        /* 输入框 */
+        .input-glass { 
+            background: rgba(0, 0, 0, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            color: var(--gold-light); 
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: 12px; 
+            outline: none; 
+            transition: all 0.3s ease; 
+            border-radius: var(--radius-sm); 
+            width: 100%; 
+            box-sizing: border-box; 
+            text-align: center; 
+            height: var(--control-height);
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+
+        .input-glass:focus { 
+            border-color: var(--gold-primary); 
+            background: rgba(0, 0, 0, 0.5); 
+            box-shadow: 0 0 12px var(--gold-glow);
+        }
+
+        select.input-glass { 
+            cursor: pointer; 
+            text-align: left;
+            padding-left: var(--spacing-sm);
+        }
+
+        select.input-glass option { 
+            background: #1a1a1a; 
+            color: var(--gold-primary); 
+            font-size: 11px;
+        }
+
+        /* 滑块 */
+        input[type=range] { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+            margin: var(--spacing-sm) 0; 
+            height: var(--control-height);
+        }
+
         input[type=range]:focus { outline: none; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 1px; cursor: pointer; background: rgba(255, 255, 255, 0.2); border-radius: 1px; }
-        input[type=range]::-webkit-slider-thumb { height: 9px; width: 9px; border-radius: 50%; background: #d4af37; cursor: pointer; -webkit-appearance: none; margin-top: -4px; box-shadow: 0 0 5px rgba(212, 175, 55, 0.8); border: 1px solid #000; transition: transform 0.1s; }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); background: #fff; }
 
-        .input-glass { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); color: #eebb66; padding: 3px; font-size: 10px; outline: none; transition: 0.3s; border-radius: 2px; width: 100%; box-sizing: border-box; text-align: center; height: 24px; }
-        .input-glass:focus { border-color: #d4af37; background: rgba(0,0,0,0.6); }
-        select.input-glass { cursor: pointer; }
-        select.input-glass option { background: #000; color: #d4af37; }
-        input[type="color"] { -webkit-appearance: none; border: none; width: 100%; height: 16px; cursor: pointer; padding: 0; background: none; }
+        input[type=range]::-webkit-slider-runnable-track { 
+            width: 100%; 
+            height: 4px; 
+            cursor: pointer; 
+            background: rgba(255, 255, 255, 0.15); 
+            border-radius: 2px; 
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
 
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
-        #title-container { position: absolute; top: 10%; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: auto; cursor: move; z-index: 50; transition: color 0.2s; user-select: none; padding: 10px; }
-        .title-line { margin: 0; transition: all 0.2s ease; white-space: nowrap; color: #fceea7; text-shadow: 0 0 30px rgba(255, 255, 255, 0.2); }
-        .top-left-panel { pointer-events: auto; display: flex; flex-direction: column; gap: 4px; padding: 10px; width: 100%; box-sizing: border-box; }
-        .interaction-grid { display: flex; gap: 4px; margin-bottom: 4px; }
-        .direction-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
-        .dir-btn { background: rgba(255,255,255,0.03); border: 1px solid rgba(212,175,55,0.2); color: #d4af37; text-align: center; cursor: pointer; padding: 5px 0; border-radius: 2px; font-size: 11px; user-select: none; transition: 0.2s; }
-        .dir-btn:hover { background: rgba(212,175,55,0.2); color: #fff; box-shadow: 0 0 8px rgba(212,175,55,0.2); }
-        .dir-btn:active { background: #d4af37; color: #000; }
+        input[type=range]::-webkit-slider-thumb { 
+            height: 16px; 
+            width: 16px; 
+            border-radius: 50%; 
+            background: var(--gold-primary); 
+            cursor: pointer; 
+            -webkit-appearance: none; 
+            margin-top: -6px; 
+            box-shadow: 0 0 8px var(--gold-glow);
+            border: 2px solid var(--bg-dark);
+            transition: all 0.2s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover { 
+            transform: scale(1.2); 
+            background: var(--gold-light);
+            box-shadow: 0 0 12px var(--gold-primary);
+        }
+
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+
+        /* 颜色选择器 */
+        input[type="color"] { 
+            -webkit-appearance: none; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            width: 40px; 
+            height: 24px; 
+            cursor: pointer; 
+            padding: 0; 
+            background: none; 
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        input[type="color"]:hover {
+            border-color: var(--gold-primary);
+            transform: scale(1.05);
+        }
+
+        /* 按钮 */
+        .elegant-btn { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(212, 175, 55, 0.3); 
+            color: var(--gold-light); 
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer; 
+            text-transform: uppercase; 
+            font-size: 11px; 
+            transition: all 0.3s ease; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: var(--radius-sm); 
+            box-sizing: border-box; 
+            position: relative; 
+            overflow: hidden; 
+            font-family: 'Microsoft YaHei', sans-serif; 
+            text-decoration: none;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            height: var(--control-height);
+        }
+
+        .elegant-btn:hover { 
+            background: rgba(212, 175, 55, 0.15); 
+            border-color: var(--gold-primary); 
+            color: var(--white-pure); 
+            box-shadow: 0 0 16px var(--gold-glow);
+            transform: translateY(-1px);
+        }
+
+        .elegant-btn:active { 
+            transform: translateY(0) scale(0.98); 
+            box-shadow: 0 0 8px var(--gold-glow);
+        }
+
+        .elegant-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .elegant-btn.danger { 
+            border-color: rgba(196, 30, 58, 0.5); 
+            color: #ff6b7a; 
+        }
+
+        .elegant-btn.danger:hover { 
+            background: rgba(196, 30, 58, 0.2); 
+            border-color: var(--red-accent);
+            box-shadow: 0 0 16px rgba(196, 30, 58, 0.4);
+        }
+
+        .elegant-btn.primary { 
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(255, 215, 0, 0.1));
+            border-color: var(--gold-primary);
+        }
+
+        .elegant-btn.primary:hover {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(255, 215, 0, 0.2));
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        /* 上传按钮特殊处理 */
+        .upload-btn {
+            position: relative;
+        }
+
+        .upload-btn input[type="file"] { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            opacity: 0; 
+            cursor: pointer; 
+        }
+
+        /* 控制组容器 */
+        .control-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-xs); 
+            margin-bottom: var(--spacing-sm);
+            background: rgba(0, 0, 0, 0.2);
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-row { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 4px; 
+            margin-bottom: var(--spacing-xs); 
+        }
+
+        .control-label { 
+            color: var(--white-dim); 
+            font-size: 10px; 
+            font-weight: 700; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-value {
+            color: var(--gold-primary);
+            font-weight: 600;
+        }
+
+        /* 滚动容器 */
+        .particle-scroll-container { 
+            max-height: 180px; 
+            overflow-y: auto; 
+            padding-right: 6px; 
+            margin-right: -6px; 
+            border-left: 2px solid rgba(212, 175, 55, 0.15); 
+            padding-left: var(--spacing-sm); 
+            border-radius: var(--radius-sm);
+        }
+
+        .particle-scroll-container::-webkit-scrollbar { width: 3px; }
+        .particle-scroll-container::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); border-radius: 2px; }
+        .particle-scroll-container::-webkit-scrollbar-thumb { background: var(--gold-primary); border-radius: 2px; }
+
+        /* ================= 7. 交互控制区 ================= */
         
-        #top-right-controls { position: absolute; top: 15px; right: 15px; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; z-index: 50; }
-        #webcam-wrapper { position: absolute; bottom: 15px; right: 15px; width: 160px; height: 120px; border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.9); overflow: hidden; z-index: 20; pointer-events: auto; background: #000; transition: opacity 0.4s ease, transform 0.4s ease; }
-        #webcam-wrapper.camera-hidden { opacity: 0; pointer-events: none; transform: translateY(10px); }
-        #webcam-canvas { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
-        #cam-status { position: absolute; bottom: 5px; right: 5px; width: 6px; height: 6px; background: #550000; border-radius: 50%; box-shadow: 0 0 4px #ff0000; z-index: 30; transition: 0.2s; }
-        #cam-status.active { background: #00ff00; box-shadow: 0 0 6px #00ff00; }
-        
-        #delete-manager { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; backdrop-filter: blur(10px); }
-        #photo-grid { display: flex; flex-wrap: wrap; gap: 15px; width: 70%; height: 60%; overflow-y: auto; justify-content: center; padding: 20px; border: 1px solid rgba(212,175,55,0.3); margin: 20px 0; background: rgba(0,0,0,0.5); border-radius: 8px; }
-        .photo-item { width: 80px; height: 80px; position: relative; border: 1px solid #d4af37; transition: 0.2s; cursor: pointer; }
-        .photo-item:hover { transform: scale(1.1); border-color: #fff; box-shadow: 0 0 15px rgba(212,175,55,0.5); }
-        .photo-thumb { width: 100%; height: 100%; object-fit: cover; }
-        .delete-x { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; background: #900; color: white; border-radius: 50%; text-align: center; line-height: 18px; font-size: 12px; cursor: pointer; font-weight: bold; border: 1px solid #fff; }
-        .manager-title { color: #d4af37; font-size: 20px; font-family: 'Microsoft YaHei', serif; letter-spacing: 2px; }
-        
-        #loader { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #050505; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease-out; }
-        .spinner { width: 50px; height: 50px; border: 1px solid rgba(212, 175, 55, 0.1); border-top: 2px solid #d4af37; border-radius: 50%; animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .loader-text { color: #d4af37; font-size: 12px; letter-spacing: 4px; margin-top: 25px; font-family: 'Cinzel', serif; opacity: 0.8; }
-        
-        /* 进度条样式 - 新增 */
+        .interaction-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: var(--spacing-xs); 
+            margin-bottom: var(--spacing-sm); 
+        }
+
+        .direction-pad { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            gap: var(--spacing-xs); 
+            margin-top: var(--spacing-sm); 
+            padding-top: var(--spacing-sm); 
+            border-top: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+
+        .dir-btn { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(212, 175, 55, 0.2); 
+            color: var(--gold-light); 
+            text-align: center; 
+            cursor: pointer; 
+            padding: var(--spacing-sm) 0; 
+            border-radius: var(--radius-sm); 
+            font-size: 12px; 
+            user-select: none; 
+            transition: 0.2s; 
+            height: var(--control-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dir-btn:hover { 
+            background: rgba(212, 175, 55, 0.2); 
+            color: var(--white-pure); 
+            box-shadow: 0 0 10px var(--gold-glow);
+        }
+
+        .dir-btn:active { 
+            background: var(--gold-primary); 
+            color: var(--bg-dark); 
+            transform: scale(0.95);
+        }
+
+        .dir-btn.center {
+            font-size: 10px;
+            padding: var(--spacing-xs);
+        }
+
+        /* ================= 8. 摄像头预览 ================= */
+        #webcam-wrapper { 
+            position: absolute; 
+            bottom: var(--spacing-lg); 
+            right: var(--spacing-lg); 
+            width: 160px; 
+            height: 120px; 
+            border: 2px solid var(--gold-primary); 
+            border-radius: var(--radius-md); 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); 
+            overflow: hidden; 
+            z-index: 20; 
+            pointer-events: auto; 
+            background: #000; 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(var(--ui-scale));
+            transform-origin: bottom right;
+        }
+
+        #webcam-wrapper.camera-hidden { 
+            opacity: 0; 
+            pointer-events: none; 
+            transform: translateY(20px) scale(var(--ui-scale)); 
+            border-color: rgba(212, 175, 55, 0.2);
+        }
+
+        #webcam-canvas { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transform: scaleX(-1); 
+            display: block; 
+        }
+
+        #cam-status { 
+            position: absolute; 
+            bottom: 6px; 
+            right: 6px; 
+            width: 8px; 
+            height: 8px; 
+            background: #550000; 
+            border-radius: 50%; 
+            box-shadow: 0 0 6px #ff0000; 
+            z-index: 30; 
+            transition: 0.3s; 
+            border: 2px solid #000;
+        }
+
+        #cam-status.active { 
+            background: #00ff00; 
+            box-shadow: 0 0 10px #00ff00; 
+        }
+
+        /* ================= 9. 照片管理器 ================= */
+        #delete-manager { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(10, 10, 10, 0.92); 
+            z-index: 60; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            pointer-events: auto; 
+            backdrop-filter: blur(20px);
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        #delete-manager.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .manager-title { 
+            color: var(--gold-primary); 
+            font-size: 24px; 
+            font-family: 'Cinzel', serif; 
+            letter-spacing: 3px; 
+            margin-bottom: var(--spacing-lg);
+            text-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        #photo-grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+            width: 70%; 
+            max-width: 800px;
+            height: 50%; 
+            overflow-y: auto; 
+            justify-content: center; 
+            padding: 20px; 
+            border: 1px solid rgba(212, 175, 55, 0.3); 
+            margin: 20px 0; 
+            background: rgba(0, 0, 0, 0.5); 
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(8px);
+        }
+
+        .photo-item { 
+            width: 90px; 
+            height: 90px; 
+            position: relative; 
+            border: 2px solid var(--gold-primary); 
+            transition: all 0.3s ease; 
+            cursor: pointer; 
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: #000;
+        }
+
+        .photo-item:hover { 
+            transform: scale(1.1) translateY(-2px); 
+            border-color: var(--gold-light); 
+            box-shadow: 0 0 20px var(--gold-glow);
+            z-index: 10;
+        }
+
+        .photo-thumb { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            display: block;
+        }
+
+        .delete-x { 
+            position: absolute; 
+            top: -6px; 
+            right: -6px; 
+            width: 22px; 
+            height: 22px; 
+            background: var(--red-accent); 
+            color: white; 
+            border-radius: 50%; 
+            text-align: center; 
+            line-height: 20px; 
+            font-size: 14px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            border: 2px solid var(--white-pure);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .delete-x:hover { 
+            transform: scale(1.2) rotate(90deg); 
+            background: #ff0000;
+            box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
+        }
+
+        .manager-actions { 
+            display: flex; 
+            gap: var(--spacing-lg); 
+            margin-top: var(--spacing-md);
+        }
+
+        .manager-actions .elegant-btn {
+            min-width: 120px;
+            font-size: 12px;
+        }
+
+        /* ================= 10. 加载器和状态 ================= */
+        #loader { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: var(--bg-dark); 
+            z-index: 100; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            transition: opacity 0.5s ease-out; 
+        }
+
+        .spinner { 
+            width: 60px; 
+            height: 60px; 
+            border: 2px solid rgba(212, 175, 55, 0.15); 
+            border-top: 3px solid var(--gold-primary); 
+            border-radius: 50%; 
+            animation: spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; 
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        @keyframes spin { 
+            0% { transform: rotate(0deg) scale(1); } 
+            50% { transform: rotate(180deg) scale(1.05); } 
+            100% { transform: rotate(360deg) scale(1); } 
+        }
+
+        .loader-text { 
+            color: var(--gold-primary); 
+            font-size: 14px; 
+            letter-spacing: 6px; 
+            margin-top: 30px; 
+            font-family: 'Cinzel', serif; 
+            opacity: 0.9;
+            text-transform: uppercase;
+        }
+
+        /* 进度条 */
         .progress-container {
-            width: 300px;
+            width: 320px;
             margin-top: 20px;
             display: none;
         }
+
         .progress-bar-bg {
             width: 100%;
-            height: 6px;
+            height: 8px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
+            border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
         }
+
         .progress-bar-fill {
             height: 100%;
-            background: linear-gradient(90deg, #d4af37, #fceea7);
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold-primary), var(--gold-light));
             width: 0%;
-            transition: width 0.3s ease;
-            box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+            transition: width 0.4s ease;
+            box-shadow: 0 0 16px var(--gold-glow);
+            border-radius: 4px;
         }
+
         .progress-text {
-            color: #d4af37;
-            font-size: 11px;
+            color: var(--gold-light);
+            font-size: 12px;
             text-align: center;
             letter-spacing: 1px;
+            font-weight: 600;
         }
+
         .progress-step {
-            color: #888;
-            font-size: 10px;
+            color: var(--white-dim);
+            font-size: 11px;
             text-align: center;
-            margin-top: 5px;
+            margin-top: 6px;
             letter-spacing: 0.5px;
+            opacity: 0.8;
         }
-        
-        /* Debug Info: Bottom Position (Default) */
+
+        /* 调试信息 */
         #debug-info { 
             position: absolute; 
             bottom: 40px; 
             width: 100%; 
             text-align: center; 
-            color: #00ff00; /* Bright Green */
-            font-size: 14px; 
-            font-weight: bold;
+            color: #00ff00;
+            font-size: 13px; 
+            font-weight: 600;
+            font-family: 'Consolas', monospace;
             pointer-events: none; 
             z-index: 999; 
-            text-shadow: 0 0 5px #000;
-            background: rgba(0,0,0,0.5); 
-            padding: 5px 0;
+            text-shadow: 0 0 4px #000;
+            background: rgba(0,0,0,0.4); 
+            padding: 6px 0;
             transition: all 0.5s ease;
+            letter-spacing: 0.5px;
         }
 
-        /* Debug Info: Loading Center Position */
         #debug-info.loading-center {
             bottom: auto;
-            top: 50%;
+            top: 55%;
             transform: translateY(-50%);
-            font-size: 18px;
+            font-size: 16px;
             background: rgba(0,0,0,0.85);
             padding: 20px 0;
             border-top: 1px solid rgba(212,175,55,0.5);
             border-bottom: 1px solid rgba(212,175,55,0.5);
+            border-radius: var(--radius-sm);
+            max-width: 400px;
+            left: 50%;
+            margin-left: -200px;
+            position: absolute;
+            width: 400px;
         }
 
-        /* Debug Info: Hidden (Linked to UI Toggle) */
         .debug-hidden {
             opacity: 0 !important;
             pointer-events: none !important;
         }
+
+        /* 手势提示 */
+        #gesture-hint {
+            position: absolute;
+            top: 16%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--gold-light);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 16px;
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            z-index: 40;
+        }
+
+        #gesture-hint.show {
+            opacity: 1;
+        }
+
+        /* ================= 11. 响应式微调 ================= */
+        @media (max-width: 768px) {
+            :root { --ui-scale: 0.8; --sidebar-width: 200px; }
+            #left-sidebar, .bottom-left-panel { left: 10px; }
+            #top-right-controls { right: 10px; }
+            #webcam-wrapper { bottom: 10px; right: 10px; width: 120px; height: 90px; }
+            .icon-btn { padding: 6px 10px; font-size: 11px; }
+        }
+
+        /* ================= 12. 隐藏滚动条但保留功能 ================= */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
     </style>
     <script type="importmap">
         { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/", "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm" } }
     </script>
 </head>
 <body>
+    <!-- 加载界面 -->
     <div id="loader">
         <div class="spinner"></div>
         <div class="loader-text">SYSTEM INITIALIZING</div>
@@ -199,34 +859,226 @@
             <div class="progress-step" id="progress-step">正在初始化...</div>
         </div>
     </div>
+
+    <!-- 主画布容器 -->
     <div id="canvas-container"></div>
-    <div id="title-container"><h1 id="display-line1" class="title-line">Merry</h1><h1 id="display-line2" class="title-line">Christmas</h1></div>
-    <div id="ui-layer">
-        <div id="top-right-controls"><button class="elegant-btn glass-panel" id="fs-btn" onclick="toggleFullScreen()" style="padding: 6px 12px;">⛶ 全屏显示</button><button class="elegant-btn glass-panel" id="toggle-ui-btn" onclick="toggleUI()" style="padding: 6px 12px;">👁 隐藏界面</button></div>
-        <div id="left-sidebar">
-            <div class="top-left-panel glass-panel"><div class="ui-title-main">场景定制</div> 
-                <div class="ui-title-sub">祝福语录</div><div class="control-row"><input type="text" id="input-line1" class="input-glass" placeholder="第一行文字" oninput="updateTextConfig()"><input type="text" id="input-line2" class="input-glass" placeholder="第二行文字" oninput="updateTextConfig()" style="margin-top:2px;"></div><div class="ui-title-sub">字体风格</div><select id="font-select" class="input-glass" onchange="updateTextConfig()"><option value="style1">书法韵味</option><option value="style2">古典衬线</option><option value="style3">优雅手写</option><option value="style4">艺术线条</option><option value="style5">复古重磅</option></select><div class="control-row"><div class="ui-title-sub" style="margin-top:6px;">大小 & 颜色</div><div style="display:flex; gap:8px; align-items:center;"><input type="range" min="50" max="250" value="100" id="slider-fontsize" oninput="updateTextConfig()"><input type="color" id="color-picker" value="#fceea7" oninput="updateTextConfig()" style="width:30px; height:20px; border:none;"></div></div><div class="ui-title-sub" style="border-top:1px solid rgba(255,255,255,0.05); padding-top:6px; margin-top:6px;">背景音乐</div><div style="display:flex; gap:8px; margin-bottom:4px;"><button class="elegant-btn" onclick="toggleMusicPlay()" id="play-btn" style="flex:2; font-size:14px;">⏯</button><button class="elegant-btn" onclick="replayMusic()" style="flex:1; font-size:14px;">⟲</button></div><div class="control-row"><span class="control-label" style="text-align:center;">音量调节</span><input type="range" min="0" max="100" value="50" id="slider-volume" oninput="updateVolume(this.value)"></div><div class="ui-title-sub" style="border-top:1px solid rgba(255,255,255,0.05); padding-top:6px; margin-top:6px;">粒子控制</div><div class="particle-scroll-container"><div class="control-row"><span class="control-label">装饰密度 (树)</span><input type="range" min="500" max="3000" value="1500" id="slider-tree"></div><div class="control-row"><span class="control-label">星尘密度 (背景)</span><input type="range" min="500" max="5000" value="2500" id="slider-dust"></div><div class="control-row"><span class="control-label">雪花数量</span><input type="range" min="0" max="3000" step="100" value="1500" id="slider-snow-count" onchange="updateSnowSettings()"></div><div class="control-row"><span class="control-label">雪花大小</span><input type="range" min="0.05" max="0.3" step="0.01" value="0.12" id="slider-snow-size" onchange="updateSnowSettings()"></div><div class="control-row"><span class="control-label">下落速度</span><input type="range" min="1.0" max="8.0" step="0.5" value="3.5" id="slider-snow-speed" oninput="updateSnowSpeed(this.value)"></div></div><button class="elegant-btn" style="width:100%; margin-top:8px;" onclick="applyParticleSettings()">⚡ 重置场景</button></div>
-            <div class="top-left-panel glass-panel"><div class="ui-title-main">交互中控</div><div class="ui-title-sub">形态切换</div>
-                <div class="interaction-grid">
-                    <button class="elegant-btn" style="flex:1;" onclick="setMode('TREE')">聚合 (Space)</button>
-                    <button class="elegant-btn" style="flex:1;" onclick="cycleNextPhoto()">抓取照片 (Z)</button>
-                </div>
-                <div class="control-row" style="margin-top:8px;"><span class="control-label">旋转速度 (散开)</span><input type="range" min="0.1" max="5.0" step="0.1" value="1.4" oninput="updateRotationSpeed(this.value)"></div><div class="direction-pad"><div></div><div class="dir-btn" onmousedown="startRotate('up')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▲</div><div></div><div class="dir-btn" onmousedown="startRotate('left')" onmouseup="stopRotate()" onmouseleave="stopRotate()">◀</div><div class="dir-btn" onclick="resetRotation()" style="font-size:10px;">●</div><div class="dir-btn" onmousedown="startRotate('right')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▶</div><div></div><div class="dir-btn" onmousedown="startRotate('down')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▼</div><div></div></div></div>
-        </div>
-        <div class="bottom-left-panel glass-panel"><div class="ui-title-main" style="font-size:12px; margin-bottom:5px;">资源管理</div><label class="elegant-btn"> + 上传照片 <input type="file" id="file-input" multiple accept="image/*"> </label><button class="elegant-btn" onclick="openDeleteManager()">▣ 管理照片</button><label class="elegant-btn" id="music-upload-label"> ♫ 背景音乐 <input type="file" id="music-input" accept=".mp3,audio/mpeg"> </label><button class="elegant-btn" id="toggle-cam-btn" onclick="toggleCameraDisplay()">📷 隐藏画面</button></div>
-        <div style="grid-column: span 2; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 5px; text-align: center; font-size: 10px; color: #666;">
-        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-        <span id="busuanzi_container_site_pv">
-            人气值: <span id="busuanzi_value_site_pv" style="color: #d4af37; font-weight: bold;">--</span> 🔥
-        </span>
+
+    <!-- 标题区域 -->
+    <div id="title-container">
+        <h1 id="display-line1" class="title-line">Merry</h1>
+        <h1 id="display-line2" class="title-line">Christmas</h1>
     </div>
-    </div>
+
+    <!-- 手势提示 -->
     <div id="gesture-hint">正在初始化系统...</div>
-    <div id="debug-info" class="loading-center">正在下载手势识别模型...</div>
-    <div id="webcam-wrapper"><canvas id="webcam-canvas" width="320" height="240"></canvas><div id="cam-status"></div></div>
+
+    <!-- UI图层 -->
+    <div id="ui-layer">
+        <!-- 右上角控制 -->
+        <div id="top-right-controls">
+            <button class="icon-btn glass-panel" id="fs-btn" onclick="toggleFullScreen()">
+                <span>⛶</span> <span>全屏显示</span>
+            </button>
+            <button class="icon-btn glass-panel" id="toggle-ui-btn" onclick="toggleUI()">
+                <span>👁</span> <span>隐藏界面</span>
+            </button>
+        </div>
+
+        <!-- 左侧主边栏 -->
+        <div id="left-sidebar">
+            <!-- 场景定制 -->
+            <div class="glass-panel scroll-content">
+                
+                <div class="section-title">场景定制</div>
+
+                <!-- 祝福语录 -->
+                <div class="subsection-title">祝福语录</div>
+                <div class="control-group">
+                    <input type="text" id="input-line1" class="input-glass" placeholder="第一行文字" oninput="updateTextConfig()">
+                    <input type="text" id="input-line2" class="input-glass" placeholder="第二行文字" oninput="updateTextConfig()">
+                </div>
+
+                <!-- 字体风格 -->
+                <div class="subsection-title">字体风格</div>
+                <select id="font-select" class="input-glass" onchange="updateTextConfig()">
+                    <option value="style1">🖊️ 书法韵味</option>
+                    <option value="style2">🏛️ 古典衬线</option>
+                    <option value="style3">✍️ 优雅手写</option>
+                    <option value="style4">🎨 艺术线条</option>
+                    <option value="style5">📰 复古重磅</option>
+                </select>
+
+                <!-- 大小和颜色 -->
+                <div class="subsection-title">外观调节</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label class="control-label">
+                            字体大小 <span class="control-value" id="size-value">100</span>
+                        </label>
+                        <input type="range" min="50" max="250" value="100" id="slider-fontsize" oninput="updateTextConfig()">
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 4px;">
+                        <span class="control-label" style="margin: 0;">文字颜色</span>
+                        <input type="color" id="color-picker" value="#fceea7" oninput="updateTextConfig()">
+                    </div>
+                </div>
+
+                <!-- 背景音乐 -->
+                <div class="subsection-title">背景音乐</div>
+                <div class="control-group">
+                    <div style="display: flex; gap: 8px; margin-bottom: 4px;">
+                        <button class="elegant-btn" onclick="toggleMusicPlay()" id="play-btn" style="flex: 2;">
+                            <span id="play-icon">⏯</span> <span id="play-text">播放</span>
+                        </button>
+                        <button class="elegant-btn" onclick="replayMusic()" style="flex: 1;" title="重新播放">
+                            ⟲
+                        </button>
+                    </div>
+                    <div class="control-row">
+                        <label class="control-label">
+                            音量调节 <span class="control-value" id="volume-value">50</span>
+                        </label>
+                        <input type="range" min="0" max="100" value="50" id="slider-volume" oninput="updateVolume(this.value)">
+                    </div>
+                </div>
+
+                <!-- 粒子控制 -->
+                <div class="subsection-title">粒子控制</div>
+                <div class="particle-scroll-container">
+                    <div class="control-group">
+                        <div class="control-row">
+                            <label class="control-label">
+                                装饰密度 (树) <span class="control-value" id="tree-value">1500</span>
+                            </label>
+                            <input type="range" min="500" max="3000" value="1500" id="slider-tree" oninput="document.getElementById('tree-value').textContent=this.value">
+                        </div>
+                        <div class="control-row">
+                            <label class="control-label">
+                                星尘密度 (背景) <span class="control-value" id="dust-value">2500</span>
+                            </label>
+                            <input type="range" min="500" max="5000" value="2500" id="slider-dust" oninput="document.getElementById('dust-value').textContent=this.value">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-row">
+                            <label class="control-label">
+                                雪花数量 <span class="control-value" id="snow-count-value">1500</span>
+                            </label>
+                            <input type="range" min="0" max="3000" step="100" value="1500" id="slider-snow-count" onchange="updateSnowSettings()">
+                        </div>
+                        <div class="control-row">
+                            <label class="control-label">
+                                雪花大小 <span class="control-value" id="snow-size-value">0.12</span>
+                            </label>
+                            <input type="range" min="0.05" max="0.3" step="0.01" value="0.12" id="slider-snow-size" onchange="updateSnowSettings()">
+                        </div>
+                        <div class="control-row">
+                            <label class="control-label">
+                                下落速度 <span class="control-value" id="snow-speed-value">3.5</span>
+                            </label>
+                            <input type="range" min="1.0" max="8.0" step="0.5" value="3.5" id="slider-snow-speed" oninput="updateSnowSpeed(this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <button class="elegant-btn primary" style="width: 100%; margin-top: 8px;" onclick="applyParticleSettings()">
+                    ⚡ 重置场景
+                </button>
+
+                <!-- 交互中控 -->
+                <div class="section-title" style="margin-top: 16px;">交互中控</div>
+
+                <div class="subsection-title">形态切换</div>
+                <div class="interaction-grid">
+                    <button class="elegant-btn primary" onclick="setMode('TREE')">
+                        <span>聚合</span>
+                    </button>
+                    <button class="elegant-btn" onclick="cycleNextPhoto()">
+                        <span>抓取照片</span>
+                    </button>
+                </div>
+
+                <div class="subsection-title">手动控制</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label class="control-label">
+                            旋转速度 <span class="control-value" id="rotation-value">1.4</span>
+                        </label>
+                        <input type="range" min="0.1" max="5.0" step="0.1" value="1.4" oninput="updateRotationSpeed(this.value)">
+                    </div>
+                    
+                    <div class="direction-pad">
+                        <div></div>
+                        <div class="dir-btn" onmousedown="startRotate('up')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▲</div>
+                        <div></div>
+                        <div class="dir-btn" onmousedown="startRotate('left')" onmouseup="stopRotate()" onmouseleave="stopRotate()">◀</div>
+                        <div class="dir-btn center" onclick="resetRotation()" title="重置旋转">●</div>
+                        <div class="dir-btn" onmousedown="startRotate('right')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▶</div>
+                        <div></div>
+                        <div class="dir-btn" onmousedown="startRotate('down')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▼</div>
+                        <div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部资源管理面板 -->
+        <div class="bottom-left-panel glass-panel">
+            <div class="ui-title-main" style="font-size: 12px; margin-bottom: 5px; grid-column: span 2; text-align: center; color: var(--gold-primary); letter-spacing: 1px;">资源管理</div>
+            
+            <label class="elegant-btn upload-btn">
+                <span>+ 上传照片</span>
+                <input type="file" id="file-input" multiple accept="image/*">
+            </label>
+            
+            <button class="elegant-btn" onclick="openDeleteManager()">
+                <span>▣ 管理照片</span>
+            </button>
+            
+            <label class="elegant-btn upload-btn" id="music-upload-label">
+                <span>♫ 背景音乐</span>
+                <input type="file" id="music-input" accept=".mp3,audio/mpeg">
+            </label>
+            
+            <button class="elegant-btn" id="toggle-cam-btn" onclick="toggleCameraDisplay()">
+                <span>📷 隐藏画面</span>
+            </button>
+
+            <!-- 统计信息 -->
+            <div style="grid-column: span 2; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 8px; padding-top: 8px; text-align: center; font-size: 10px; color: #888;">
+                <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+                <span id="busuanzi_container_site_pv">
+                    人气值: <span id="busuanzi_value_site_pv" style="color: var(--gold-primary); font-weight: bold;">--</span> 🔥
+                </span>
+            </div>
+        </div>
+
+        <!-- 调试信息 -->
+        <div id="debug-info" class="loading-center">正在下载手势识别模型...</div>
+    </div>
+
+    <!-- 摄像头预览 -->
+    <div id="webcam-wrapper">
+        <canvas id="webcam-canvas" width="320" height="240"></canvas>
+        <div id="cam-status"></div>
+    </div>
     <video id="webcam-video" autoplay playsinline muted style="display:none"></video>
-    <div id="delete-manager" class="hidden"><div class="manager-title">照片库管理</div><div id="photo-grid"></div><div class="manager-actions"><button class="elegant-btn btn-red glass-panel" onclick="clearAllPhotos()" style="padding: 8px 20px;">清空所有</button><button class="elegant-btn glass-panel" onclick="closeDeleteManager()" style="padding: 8px 20px;">关闭</button></div></div>
-    
+
+    <!-- 照片管理器 -->
+    <div id="delete-manager" class="hidden">
+        <div class="manager-title">照片库管理</div>
+        <div id="photo-grid"></div>
+        <div class="manager-actions">
+            <button class="elegant-btn danger glass-panel" onclick="clearAllPhotos()">
+                清空所有
+            </button>
+            <button class="elegant-btn glass-panel" onclick="closeDeleteManager()">
+                关闭
+            </button>
+        </div>
+    </div>
+
     <script type="module">
         import * as THREE from 'three';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -257,18 +1109,18 @@
         const FONT_STYLES = { 'style1': { font: "'Ma Shan Zheng', cursive", spacing: "4px", shadow: "2px 2px 8px rgba(180,50,50,0.8)", transform: "none" }, 'style2': { font: "'Cinzel', serif", spacing: "6px", shadow: "0 0 20px rgba(255,215,0,0.5)", transform: "none" }, 'style3': { font: "'Great Vibes', cursive", spacing: "1px", shadow: "0 0 15px rgba(255,200,255,0.7)", transform: "none" }, 'style4': { font: "'Monoton', cursive", spacing: "1px", shadow: "0 0 10px #fff", transform: "none" }, 'style5': { font: "'Abril Fatface', cursive", spacing: "0px", shadow: "0 5px 15px rgba(0,0,0,0.8)", transform: "none" } };
 
         let db;
-        function initDB() { if(EXPORTED_DATA) return Promise.resolve(null); return new Promise(r=>{const q=indexedDB.open(DB_NAME,1);q.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('photos'))d.createObjectStore('photos',{keyPath:"id"});if(!d.objectStoreNames.contains('music'))d.createObjectStore('music',{keyPath:"id"})};q.onsuccess=e=>{db=e.target.result;r(db)};q.onerror=()=>r(null)});}
+        function initDB() { if(EXPORTED_DATA) return Promise.resolve(null); return new Promise(r=>{const q=indexedDB.open(DB_NAME,1);q.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('photos'))d.createObjectStore('photos',{keyPath:"id"});if(!d.objectStoreNames.contains('music'))d.createObjectStore('music',{keyPath:"id"})};q.onsuccess=e=>{db=e.target.result;r(db)};q.onerror=()=>r(null)}); }
         function savePhotoToDB(b){if(!db)return null;const t=db.transaction('photos',"readwrite");const i=Date.now()+Math.random().toString();t.objectStore('photos').add({id:i,data:b});return i;}
-        function loadPhotosFromDB(){if(EXPORTED_DATA) return Promise.resolve(EXPORTED_DATA.photos || []); if(!db)return Promise.resolve([]); return new Promise(r=>{db.transaction('photos',"readonly").objectStore('photos').getAll().onsuccess=e=>r(e.target.result)});}
+        function loadPhotosFromDB(){if(EXPORTED_DATA) return Promise.resolve(EXPORTED_DATA.photos || []); if(!db)return Promise.resolve([]); return new Promise(r=>{db.transaction('photos',"readonly").objectStore('photos').getAll().onsuccess=e=>r(e.target.result)}); }
         function deletePhotoFromDB(i){if(db)db.transaction('photos',"readwrite").objectStore('photos').delete(i);}
         function clearPhotosDB(){if(db)db.transaction('photos',"readwrite").objectStore('photos').clear();}
         function saveMusicToDB(b){if(!db)return;const t=db.transaction('music',"readwrite");t.objectStore('music').put({id:'bgm',data:b});}
-        function loadMusicFromDB(){if(EXPORTED_DATA && EXPORTED_DATA.music) return Promise.resolve(dataURLtoBlob(EXPORTED_DATA.music)); if(!db)return Promise.resolve(null);return new Promise(r=>{db.transaction('music',"readonly").objectStore('music').get('bgm').onsuccess=e=>r(e.target.result?e.target.result.data:null)});}
+        function loadMusicFromDB(){if(EXPORTED_DATA && EXPORTED_DATA.music) return Promise.resolve(dataURLtoBlob(EXPORTED_DATA.music)); if(!db)return Promise.resolve(null);return new Promise(r=>{db.transaction('music',"readonly").objectStore('music').get('bgm').onsuccess=e=>r(e.target.result?e.target.result.data:null)}); }
         function dataURLtoBlob(dataurl) { var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n); while(n--){ u8arr[n] = bstr.charCodeAt(n); } return new Blob([u8arr], {type:mime}); }
 
         let scene, camera, renderer, composer, mainGroup, particleSystem=[], photoMeshGroup=new THREE.Group(), snowInstancedMesh, snowDummy=new THREE.Object3D(), snowData=[], clock=new THREE.Clock(), handLandmarker, videoElement, caneTexture, bgmAudio=new Audio(); bgmAudio.loop=true; let isMusicPlaying=false;
         
-        // 进度管理器
+        // 进度管理器 (保持原有逻辑，UI已更新)
         const progressManager = {
             totalSteps: 8,
             currentStep: 0,
@@ -369,9 +1221,22 @@
             
             // 完成进度条
             progressManager.complete();
+            
+            // 显示手势提示
+            setTimeout(() => {
+                const hint = document.getElementById('gesture-hint');
+                if(hint) hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 4000);
+            }, 1000);
         }
 
-        function initDraggableTitle() { const t=document.getElementById('title-container'); let d=false,o={x:0,y:0}; t.onmousedown=e=>{d=true;const r=t.getBoundingClientRect();o.x=e.clientX-r.left;o.y=e.clientY-r.top;t.style.transform='none';t.style.left=r.left+'px';t.style.top=r.top+'px'}; window.onmousemove=e=>{if(d){t.style.left=(e.clientX-o.x)+'px';t.style.top=(e.clientY-o.y)+'px'}}; window.onmouseup=()=>d=false; }
+        function initDraggableTitle() { 
+            const t=document.getElementById('title-container'); 
+            let d=false,o={x:0,y:0}; 
+            t.onmousedown=e=>{d=true;const r=t.getBoundingClientRect();o.x=e.clientX-r.left;o.y=e.clientY-r.top;t.style.transform='none';t.style.left=r.left+'px';t.style.top=r.top+'px'}; 
+            window.onmousemove=e=>{if(d){t.style.left=(e.clientX-o.x)+'px';t.style.top=(e.clientY-o.y)+'px'}}; 
+            window.onmouseup=()=>d=false; 
+        }
         
         window.toggleUI=()=> { 
             STATE.uiVisible=!STATE.uiVisible; 
@@ -380,26 +1245,135 @@
             document.getElementById('debug-info').classList.toggle('debug-hidden', !STATE.uiVisible);
         };
         
-        window.toggleCameraDisplay=()=> { STATE.cameraVisible=!STATE.cameraVisible; document.getElementById('webcam-wrapper').classList.toggle('camera-hidden', !STATE.cameraVisible); };
-        window.toggleFullScreen=()=> { if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen(); };
-        function loadTextConfig() { const s=JSON.parse(localStorage.getItem('v16_text_config')); if(s){ document.getElementById('input-line1').value=s.line1||""; document.getElementById('input-line2').value=s.line2||""; document.getElementById('font-select').value=s.fontKey||"style1"; document.getElementById('slider-fontsize').value=s.size||100; document.getElementById('color-picker').value=s.color||"#fceea7"; applyTextConfig(s.fontKey,s.line1,s.line2,s.size,s.color); } else { document.getElementById('input-line1').value="Merry"; document.getElementById('input-line2').value="Christmas"; applyTextConfig("style1","Merry","Christmas",100,"#fceea7"); } }
-        window.updateTextConfig=()=> { const k=document.getElementById('font-select').value, l1=document.getElementById('input-line1').value, l2=document.getElementById('input-line2').value, s=document.getElementById('slider-fontsize').value, c=document.getElementById('color-picker').value; localStorage.setItem('v16_text_config',JSON.stringify({fontKey:k,line1:l1,line2:l2,size:s,color:c})); applyTextConfig(k,l1,l2,s,c); };
-        function applyTextConfig(k,l1,l2,s,c) { const st=FONT_STYLES[k]||FONT_STYLES['style1']; const t1=document.getElementById('display-line1'), t2=document.getElementById('display-line2'), ct=document.getElementById('title-container'); ct.style.fontFamily=st.font; t1.innerText=l1; t2.innerText=l2; t1.style.letterSpacing=st.spacing; t2.style.letterSpacing=st.spacing; t1.style.textShadow=st.shadow; t2.style.textShadow=st.shadow; t1.style.textTransform=st.transform; t2.style.textTransform=st.transform; t1.style.color=c; t2.style.color=c; t1.style.fontSize=(0.48*s)+"px"; t2.style.fontSize=(0.48*s)+"px"; }
+        window.toggleCameraDisplay=()=> { 
+            STATE.cameraVisible=!STATE.cameraVisible; 
+            document.getElementById('webcam-wrapper').classList.toggle('camera-hidden', !STATE.cameraVisible); 
+            const btn = document.getElementById('toggle-cam-btn');
+            if(btn) btn.innerHTML = STATE.cameraVisible ? '<span>📷 隐藏画面</span>' : '<span>📷 显示画面</span>';
+        };
         
-        window.toggleMusicPlay=()=> { if(!bgmAudio.src) return alert("请先上传音乐"); if(isMusicPlaying){ bgmAudio.pause(); isMusicPlaying=false; } else { bgmAudio.play(); isMusicPlaying=true; } updatePlayBtnUI(isMusicPlaying); };
-        window.replayMusic=()=> { if(!bgmAudio.src) return; bgmAudio.currentTime=0; bgmAudio.play(); isMusicPlaying=true; updatePlayBtnUI(true); };
-        window.updateVolume=(v)=> { bgmAudio.volume=v/100; };
-        function updatePlayBtnUI(p) { document.getElementById('play-btn').innerText = p ? "⏸" : "⏯"; }
+        window.toggleFullScreen=()=> { 
+            if(!document.fullscreenElement)
+                document.documentElement.requestFullscreen();
+            else 
+                document.exitFullscreen(); 
+        };
 
-        window.updateRotationSpeed=(v)=> { CONFIG.interaction.rotationSpeed = parseFloat(v); };
+        function loadTextConfig() { 
+            const s=JSON.parse(localStorage.getItem('v16_text_config')); 
+            if(s){ 
+                document.getElementById('input-line1').value=s.line1||""; 
+                document.getElementById('input-line2').value=s.line2||""; 
+                document.getElementById('font-select').value=s.fontKey||"style1"; 
+                document.getElementById('slider-fontsize').value=s.size||100; 
+                document.getElementById('color-picker').value=s.color||"#fceea7"; 
+                document.getElementById('size-value').textContent=s.size||100;
+                applyTextConfig(s.fontKey,s.line1,s.line2,s.size,s.color); 
+            } else { 
+                document.getElementById('input-line1').value="Merry"; 
+                document.getElementById('input-line2').value="Christmas"; 
+                applyTextConfig("style1","Merry","Christmas",100,"#fceea7"); 
+            } 
+        }
+
+        window.updateTextConfig=()=> { 
+            const k=document.getElementById('font-select').value, 
+                  l1=document.getElementById('input-line1').value, 
+                  l2=document.getElementById('input-line2').value, 
+                  s=document.getElementById('slider-fontsize').value, 
+                  c=document.getElementById('color-picker').value; 
+            
+            // 更新显示值
+            document.getElementById('size-value').textContent=s;
+            
+            localStorage.setItem('v16_text_config',JSON.stringify({fontKey:k,line1:l1,line2:l2,size:s,color:c})); 
+            applyTextConfig(k,l1,l2,s,c); 
+        };
+
+        function applyTextConfig(k,l1,l2,s,c) { 
+            const st=FONT_STYLES[k]||FONT_STYLES['style1']; 
+            const t1=document.getElementById('display-line1'), t2=document.getElementById('display-line2'), ct=document.getElementById('title-container'); 
+            ct.style.fontFamily=st.font; 
+            t1.innerText=l1; 
+            t2.innerText=l2; 
+            t1.style.letterSpacing=st.spacing; 
+            t2.style.letterSpacing=st.spacing; 
+            t1.style.textShadow=st.shadow; 
+            t2.style.textShadow=st.shadow; 
+            t1.style.textTransform=st.transform; 
+            t2.style.textTransform=st.transform; 
+            t1.style.color=c; 
+            t2.style.color=c; 
+            t1.style.fontSize=(0.48*s)+"px"; 
+            t2.style.fontSize=(0.48*s)+"px"; 
+        }
+        
+        window.toggleMusicPlay=()=> { 
+            if(!bgmAudio.src) {
+                alert("请先上传音乐文件");
+                return;
+            }
+            if(isMusicPlaying){ 
+                bgmAudio.pause(); 
+                isMusicPlaying=false; 
+            } else { 
+                bgmAudio.play().then(() => {
+                    isMusicPlaying=true; 
+                    updatePlayBtnUI(true);
+                }).catch(e => {
+                    console.error("音乐播放失败:", e);
+                    alert("音乐播放失败，请检查文件格式");
+                });
+            } 
+        };
+
+        window.replayMusic=()=> { 
+            if(!bgmAudio.src) {
+                alert("请先上传音乐文件");
+                return;
+            }
+            bgmAudio.currentTime=0; 
+            bgmAudio.play(); 
+            isMusicPlaying=true; 
+            updatePlayBtnUI(true);
+        };
+
+        window.updateVolume=(v)=> { 
+            bgmAudio.volume=v/100; 
+            document.getElementById('volume-value').textContent=v;
+        };
+
+        function updatePlayBtnUI(p) { 
+            const btn = document.getElementById('play-btn');
+            const icon = document.getElementById('play-icon');
+            const text = document.getElementById('play-text');
+            if(p) {
+                icon.textContent = "⏸";
+                text.textContent = "暂停";
+            } else {
+                icon.textContent = "⏯";
+                text.textContent = bgmAudio.src ? "播放" : "未上传";
+            }
+        }
+
+        window.updateRotationSpeed=(v)=> { 
+            CONFIG.interaction.rotationSpeed = parseFloat(v);
+            document.getElementById('rotation-value').textContent=v;
+        };
         
         window.setMode = function(mode) {
             STATE.mode = mode;
             STATE.focusTarget = null;
             const hint = document.getElementById('gesture-hint');
-            if(mode === 'TREE') hint.innerText = "状态: 聚合 (握拳保持 / 张开五指展示照片)";
-            else if(mode === 'SCATTER') hint.innerText = "状态: 散开 (张开五指切换 / 握拳返回)";
-            else if(mode === 'FOCUS') hint.innerText = "状态: 观赏 (张开五指切换 / 握拳返回)";
+            
+            let message = "";
+            if(mode === 'TREE') message = "状态: 聚合 (握拳保持 / 张开五指展示照片)";
+            else if(mode === 'SCATTER') message = "状态: 散开 (张开五指切换 / 握拳返回)";
+            else if(mode === 'FOCUS') message = "状态: 观赏 (张开五指切换 / 握拳返回)";
+            
+            hint.textContent = message;
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 3000);
         }
 
         window.cycleNextPhoto = () => {
@@ -407,14 +1381,22 @@
             isAnimating = true;
 
             const photoParticles = particleSystem.filter(p => p.type === 'PHOTO');
-            if (photoParticles.length === 0) { isAnimating = false; return; }
+            if (photoParticles.length === 0) { 
+                isAnimating = false; 
+                const hint = document.getElementById('gesture-hint');
+                hint.textContent = "暂无照片，请先上传";
+                hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 2000);
+                return; 
+            }
 
             let startDelay = 0;
             if(STATE.mode === 'TREE') startDelay = 50; 
             else { setMode('TREE'); startDelay = 1000; }
 
             const hint = document.getElementById('gesture-hint');
-            hint.innerText = "自动轮播中...";
+            hint.textContent = "自动轮播中...";
+            hint.classList.add('show');
 
             setTimeout(() => {
                 setMode('SCATTER');
@@ -426,6 +1408,7 @@
 
                     setTimeout(() => {
                         isAnimating = false;
+                        hint.classList.remove('show');
                         if (INPUTS.z || INPUTS.handOpen) cycleNextPhoto();
                         else if ((INPUTS.space || INPUTS.handFist) && STATE.mode !== 'TREE') cycleNextPhoto();
                     }, 1000); 
@@ -433,20 +1416,40 @@
             }, startDelay); 
         };
         
-        window.startRotate=(d)=> { if(d==='up')manualRotateState.x=-1; if(d==='down')manualRotateState.x=1; if(d==='left')manualRotateState.y=-1; if(d==='right')manualRotateState.y=1; };
-        window.stopRotate=()=> { manualRotateState={x:0,y:0}; };
-        window.resetRotation=()=> { STATE.rotation={x:0,y:0}; if(STATE.mode!=='TREE')setMode('TREE'); };
+        window.startRotate=(d)=> { 
+            if(d==='up')manualRotateState.x=-1; 
+            if(d==='down')manualRotateState.x=1; 
+            if(d==='left')manualRotateState.y=-1; 
+            if(d==='right')manualRotateState.y=1; 
+        };
+        window.stopRotate=()=> { 
+            manualRotateState={x:0,y:0}; 
+        };
+        window.resetRotation=()=> { 
+            STATE.rotation={x:0,y:0}; 
+            if(STATE.mode!=='TREE')setMode('TREE');
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = "旋转已重置";
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 1500);
+        };
 
         window.setupEvents = function() {
             window.addEventListener('resize', () => { 
-                camera.aspect = window.innerWidth/window.innerHeight; 
-                camera.updateProjectionMatrix(); 
-                renderer.setSize(window.innerWidth, window.innerHeight); 
-                composer.setSize(window.innerWidth, window.innerHeight); 
+                if(camera && renderer && composer) {
+                    camera.aspect = window.innerWidth/window.innerHeight; 
+                    camera.updateProjectionMatrix(); 
+                    renderer.setSize(window.innerWidth, window.innerHeight); 
+                    composer.setSize(window.innerWidth, window.innerHeight); 
+                }
             });
             
             document.getElementById('file-input').addEventListener('change', (e) => {
                 const files = e.target.files; if(!files.length) return;
+                const hint = document.getElementById('gesture-hint');
+                hint.textContent = `正在处理 ${files.length} 张照片...`;
+                hint.classList.add('show');
+                
                 Array.from(files).forEach(f => {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
@@ -456,13 +1459,23 @@
                     }
                     reader.readAsDataURL(f);
                 });
+                
+                setTimeout(() => {
+                    hint.textContent = "照片上传完成！";
+                    setTimeout(() => hint.classList.remove('show'), 1500);
+                }, 1000);
             });
+
             document.getElementById('music-input').addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (file) {
                     saveMusicToDB(file);
                     bgmAudio.src = URL.createObjectURL(file);
-                    bgmAudio.play().then(() => { isMusicPlaying = true; updatePlayBtnUI(true); }).catch(console.error);
+                    const hint = document.getElementById('gesture-hint');
+                    hint.textContent = "音乐已加载，点击播放";
+                    hint.classList.add('show');
+                    setTimeout(() => hint.classList.remove('show'), 2000);
+                    updatePlayBtnUI(false);
                 }
             });
 
@@ -496,14 +1509,86 @@
             });
         }
 
-        function initThree() { const c=document.getElementById('canvas-container'); scene=new THREE.Scene(); scene.background=new THREE.Color(CONFIG.colors.bg); scene.fog=new THREE.FogExp2(CONFIG.colors.bg,0.01); camera=new THREE.PerspectiveCamera(42,window.innerWidth/window.innerHeight,0.1,1000); camera.position.set(0,2,CONFIG.camera.z); renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:"high-performance"}); renderer.setSize(window.innerWidth,window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.toneMapping=THREE.ReinhardToneMapping; renderer.toneMappingExposure=2.2; c.appendChild(renderer.domElement); mainGroup=new THREE.Group(); scene.add(mainGroup); }
-        function setupEnvironment() { const p=new THREE.PMREMGenerator(renderer); scene.environment=p.fromScene(new RoomEnvironment(),0.04).texture; }
-        function setupLights() { scene.add(new THREE.AmbientLight(0xffffff,0.6)); const i=new THREE.PointLight(0xffaa00,2,20); i.position.set(0,5,0); mainGroup.add(i); const s1=new THREE.SpotLight(0xffcc66,1200); s1.position.set(30,40,40); s1.angle=0.5; s1.penumbra=0.5; scene.add(s1); const s2=new THREE.SpotLight(0x6688ff,600); s2.position.set(-30,20,-30); scene.add(s2); const f=new THREE.DirectionalLight(0xffeebb,0.8); f.position.set(0,0,50); scene.add(f); }
-        function setupPostProcessing() { const r=new RenderPass(scene,camera); const b=new UnrealBloomPass(new THREE.Vector2(window.innerWidth,window.innerHeight),1.5,0.4,0.85); b.threshold=0.7; b.strength=0.45; b.radius=0.4; composer=new EffectComposer(renderer); composer.addPass(r); composer.addPass(b); }
-        function createTextures() { const c=document.createElement('canvas'); c.width=128; c.height=128; const x=c.getContext('2d'); x.fillStyle='#ffffff'; x.fillRect(0,0,128,128); x.fillStyle='#880000'; x.beginPath(); for(let i=-128;i<256;i+=32){x.moveTo(i,0);x.lineTo(i+32,128);x.lineTo(i+16,128);x.lineTo(i-16,0);} x.fill(); caneTexture=new THREE.CanvasTexture(c); caneTexture.wrapS=caneTexture.wrapT=THREE.RepeatWrapping; caneTexture.repeat.set(3,3); }
+        function initThree() { 
+            const c=document.getElementById('canvas-container'); 
+            scene=new THREE.Scene(); 
+            scene.background=new THREE.Color(CONFIG.colors.bg); 
+            scene.fog=new THREE.FogExp2(CONFIG.colors.bg,0.01); 
+            camera=new THREE.PerspectiveCamera(42,window.innerWidth/window.innerHeight,0.1,1000); 
+            camera.position.set(0,2,CONFIG.camera.z); 
+            renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:"high-performance"}); 
+            renderer.setSize(window.innerWidth,window.innerHeight); 
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); 
+            renderer.toneMapping=THREE.ReinhardToneMapping; 
+            renderer.toneMappingExposure=2.2; 
+            c.appendChild(renderer.domElement); 
+            mainGroup=new THREE.Group(); 
+            scene.add(mainGroup); 
+        }
 
-        window.updateSnowSettings=()=> { CONFIG.snow.sizeBase=parseFloat(document.getElementById('slider-snow-size').value); CONFIG.snow.count=parseInt(document.getElementById('slider-snow-count').value); createSnow(); };
-        window.updateSnowSpeed=(v)=> { CONFIG.snow.speed=parseFloat(v); };
+        function setupEnvironment() { 
+            const p=new THREE.PMREMGenerator(renderer); 
+            scene.environment=p.fromScene(new RoomEnvironment(),0.04).texture; 
+        }
+
+        function setupLights() { 
+            scene.add(new THREE.AmbientLight(0xffffff,0.6)); 
+            const i=new THREE.PointLight(0xffaa00,2,20); 
+            i.position.set(0,5,0); 
+            mainGroup.add(i); 
+            const s1=new THREE.SpotLight(0xffcc66,1200); 
+            s1.position.set(30,40,40); 
+            s1.angle=0.5; 
+            s1.penumbra=0.5; 
+            scene.add(s1); 
+            const s2=new THREE.SpotLight(0x6688ff,600); 
+            s2.position.set(-30,20,-30); 
+            scene.add(s2); 
+            const f=new THREE.DirectionalLight(0xffeebb,0.8); 
+            f.position.set(0,0,50); 
+            scene.add(f); 
+        }
+
+        function setupPostProcessing() { 
+            const r=new RenderPass(scene,camera); 
+            const b=new UnrealBloomPass(new THREE.Vector2(window.innerWidth,window.innerHeight),1.5,0.4,0.85); 
+            b.threshold=0.7; 
+            b.strength=0.45; 
+            b.radius=0.4; 
+            composer=new EffectComposer(renderer); 
+            composer.addPass(r); 
+            composer.addPass(b); 
+        }
+
+        function createTextures() { 
+            const c=document.createElement('canvas'); 
+            c.width=128; 
+            c.height=128; 
+            const x=c.getContext('2d'); 
+            x.fillStyle='#ffffff'; 
+            x.fillRect(0,0,128,128); 
+            x.fillStyle='#880000'; 
+            x.beginPath(); 
+            for(let i=-128;i<256;i+=32){x.moveTo(i,0);x.lineTo(i+32,128);x.lineTo(i+16,128);x.lineTo(i-16,0);} 
+            x.fill(); 
+            caneTexture=new THREE.CanvasTexture(c); 
+            caneTexture.wrapS=caneTexture.wrapT=THREE.RepeatWrapping; 
+            caneTexture.repeat.set(3,3); 
+        }
+
+        window.updateSnowSettings=()=> { 
+            CONFIG.snow.sizeBase=parseFloat(document.getElementById('slider-snow-size').value); 
+            CONFIG.snow.count=parseInt(document.getElementById('slider-snow-count').value); 
+            document.getElementById('snow-size-value').textContent=CONFIG.snow.sizeBase;
+            document.getElementById('snow-count-value').textContent=CONFIG.snow.count;
+            createSnow(); 
+        };
+
+        window.updateSnowSpeed=(v)=> { 
+            CONFIG.snow.speed=parseFloat(v);
+            document.getElementById('snow-speed-value').textContent=v;
+        };
+
         function createSnow() {
             if(snowInstancedMesh){scene.remove(snowInstancedMesh); snowInstancedMesh.geometry.dispose(); snowInstancedMesh.material.dispose(); snowInstancedMesh=null; snowData=[];}
             if(CONFIG.snow.count<=0)return;
@@ -513,10 +1598,13 @@
             for(let i=0;i<CONFIG.snow.count;i++){
                 snowDummy.position.set((Math.random()-0.5)*CONFIG.snow.range, Math.random()*CONFIG.snow.range, (Math.random()-0.5)*CONFIG.snow.range);
                 snowDummy.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
-                const s=0.5+Math.random()*CONFIG.snow.sizeVar; snowDummy.scale.set(s,s,s); snowDummy.updateMatrix();
+                const s=0.5+Math.random()*CONFIG.snow.sizeVar; 
+                snowDummy.scale.set(s,s,s); 
+                snowDummy.updateMatrix();
                 snowInstancedMesh.setMatrixAt(i,snowDummy.matrix);
                 snowData.push({vy:(Math.random()*0.5+0.8), rx:(Math.random()-0.5)*2, ry:(Math.random()-0.5)*2, rz:(Math.random()-0.5)*2});
-            } scene.add(snowInstancedMesh);
+            } 
+            scene.add(snowInstancedMesh);
         }
 
         class Particle {
@@ -527,7 +1615,6 @@
                 if(mode==='SCATTER') tg=this.posScatter; 
                 else if(mode==='FOCUS'){
                     if(this.mesh===ft){
-                        // [Config v17.17] Center Logic + Y-Lift
                         let off=new THREE.Vector3(0, 1.8, 35); 
                         if(STATE.focusType===1) off.set(-0.3, 2.0, 34);
                         else if(STATE.focusType===2) off.set(0.3, 1.6, 35);
@@ -546,7 +1633,6 @@
                 else if(mode==='SCATTER'&&this.type==='PHOTO')s=this.baseScale*2.5;
                 else if(mode==='FOCUS'){
                     if(this.mesh===ft){
-                        // [Config v17.16] Mega Scale 7.0-8.0
                         if(STATE.focusType===2) s=7.5; 
                         else if(STATE.focusType===3) s=8.0; 
                         else s=7.0;
@@ -579,7 +1665,6 @@
             const debug = document.getElementById('debug-info');
             videoElement=document.getElementById('webcam-video');
             
-            // Centered loading message
             debug.innerText = "正在下载手势识别模型 (约10MB)...";
             
             if(navigator.mediaDevices?.getUserMedia){
@@ -598,7 +1683,7 @@
             try{
                 const v=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
                 handLandmarker=await HandLandmarker.createFromOptions(v,{
-                    baseOptions:{modelAssetPath:`https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,delegate:"CPU"}, // Force CPU
+                    baseOptions:{modelAssetPath:`https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,delegate:"CPU"},
                     runningMode:"VIDEO",
                     numHands:1,
                     minHandDetectionConfidence: 0.2, 
@@ -630,7 +1715,6 @@
                     const ctx = canvas.getContext('2d');
                     const drawingUtils = new DrawingUtils(ctx);
                     
-                    // Clear only if needed, but we draw image every frame in renderWebcamPreview so we draw ON TOP
                     if (results.landmarks) {
                         for (const landmarks of results.landmarks) {
                             drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, { color: "#FF0000", lineWidth: 3 });
@@ -683,13 +1767,16 @@
             }
         }
 
-        window.openDeleteManager=async()=>{document.getElementById('delete-manager').classList.remove('hidden');const g=document.getElementById('photo-grid');g.innerHTML='';const ps=await loadPhotosFromDB();if(!ps||ps.length===0)g.innerHTML='<div style="color:#888;">暂无照片</div>';else ps.forEach(p=>{const d=document.createElement('div');d.className='photo-item';const i=document.createElement('img');i.className='photo-thumb';i.src=p.data;const b=document.createElement('div');b.className='delete-x';b.innerText='X';b.onclick=e=>{e.stopPropagation();confirmDelete(p.id,d)};d.appendChild(i);d.appendChild(b);g.appendChild(d)})}
+        window.openDeleteManager=async()=>{document.getElementById('delete-manager').classList.remove('hidden');const g=document.getElementById('photo-grid');g.innerHTML='';const ps=await loadPhotosFromDB();if(!ps||ps.length===0)g.innerHTML='<div style="color:#888; text-align:center; padding:40px;">暂无照片<br><small style="opacity:0.6;">点击"+ 上传照片"添加</small></div>';else ps.forEach(p=>{const d=document.createElement('div');d.className='photo-item';const i=document.createElement('img');i.className='photo-thumb';i.src=p.data;const b=document.createElement('div');b.className='delete-x';b.innerText='×';b.onclick=e=>{e.stopPropagation();confirmDelete(p.id,d)};d.appendChild(i);d.appendChild(b);g.appendChild(d)})}
         window.confirmDelete=(id,el)=>{deletePhotoFromDB(id);el.remove();const p=particleSystem.find(pa=>pa.photoId===id);if(p){photoMeshGroup.remove(p.mesh);particleSystem.splice(particleSystem.indexOf(p),1)}}
-        window.clearAllPhotos=()=>{if(confirm("确定要清空所有照片吗？")){clearPhotosDB();particleSystem.filter(p=>p.type==='PHOTO').forEach(p=>photoMeshGroup.remove(p.mesh));particleSystem=particleSystem.filter(p=>p.type!=='PHOTO');window.openDeleteManager()}}
+        window.clearAllPhotos=()=>{if(confirm("确定要清空所有照片吗？此操作不可恢复。")){clearPhotosDB();particleSystem.filter(p=>p.type==='PHOTO').forEach(p=>photoMeshGroup.remove(p.mesh));particleSystem=particleSystem.filter(p=>p.type!=='PHOTO');window.openDeleteManager()}}
         window.closeDeleteManager=()=>{document.getElementById('delete-manager').classList.add('hidden')}
 
         function animate() {
-            requestAnimationFrame(animate); const dt=clock.getDelta(); const et=clock.getElapsedTime();
+            requestAnimationFrame(animate); 
+            const dt=clock.getDelta(); 
+            const et=clock.getElapsedTime();
+            
             if(snowInstancedMesh&&STATE.mode==='TREE'){
                 snowInstancedMesh.visible=true;
                 for(let i=0;i<CONFIG.snow.count;i++){
@@ -700,13 +1787,34 @@
                     snowDummy.updateMatrix();snowInstancedMesh.setMatrixAt(i,snowDummy.matrix);
                 } snowInstancedMesh.instanceMatrix.needsUpdate=true;
             } else if(snowInstancedMesh)snowInstancedMesh.visible=false;
-            if(manualRotateState.x!==0||manualRotateState.y!==0){const s=CONFIG.interaction.rotationSpeed*2.0;STATE.rotation.x+=manualRotateState.x*s*dt;STATE.rotation.y+=manualRotateState.y*s*dt;}
-            else if(STATE.mode==='SCATTER'&&STATE.hand.detected){const th=0.3,s=CONFIG.interaction.rotationSpeed;if(STATE.hand.x>th)STATE.rotation.y-=s*dt*(STATE.hand.x-th);else if(STATE.hand.x<-th)STATE.rotation.y-=s*dt*(STATE.hand.x+th);if(STATE.hand.y<-th)STATE.rotation.x+=s*dt*(-STATE.hand.y-th);else if(STATE.hand.y>th)STATE.rotation.x-=s*dt*(STATE.hand.y-th);}
-            else{if(STATE.mode==='TREE'){STATE.rotation.y+=0.3*dt;STATE.rotation.x+=(0-STATE.rotation.x)*2.0*dt;}else STATE.rotation.y+=0.1*dt;}
-            mainGroup.rotation.y=STATE.rotation.y;mainGroup.rotation.x=STATE.rotation.x;
+            
+            if(manualRotateState.x!==0||manualRotateState.y!==0){
+                const s=CONFIG.interaction.rotationSpeed*2.0;
+                STATE.rotation.x+=manualRotateState.x*s*dt;
+                STATE.rotation.y+=manualRotateState.y*s*dt;
+            }
+            else if(STATE.mode==='SCATTER'&&STATE.hand.detected){
+                const th=0.3,s=CONFIG.interaction.rotationSpeed;
+                if(STATE.hand.x>th)STATE.rotation.y-=s*dt*(STATE.hand.x-th);
+                else if(STATE.hand.x<-th)STATE.rotation.y-=s*dt*(STATE.hand.x+th);
+                if(STATE.hand.y<-th)STATE.rotation.x+=s*dt*(-STATE.hand.y-th);
+                else if(STATE.hand.y>th)STATE.rotation.x-=s*dt*(STATE.hand.y-th);
+            }
+            else{
+                if(STATE.mode==='TREE'){
+                    STATE.rotation.y+=0.3*dt;
+                    STATE.rotation.x+=(0-STATE.rotation.x)*2.0*dt;
+                } else {
+                    STATE.rotation.y+=0.1*dt;
+                }
+            }
+            
+            mainGroup.rotation.y=STATE.rotation.y;
+            mainGroup.rotation.x=STATE.rotation.x;
             particleSystem.forEach(p=>p.update(dt,STATE.mode,STATE.focusTarget));
             composer.render();
         }
+
         init();
     </script>
 </body>
