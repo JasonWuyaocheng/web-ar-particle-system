@@ -230,44 +230,62 @@
             velocity = new Float32Array(count * 3);
             acceleration = new Float32Array(count * 3);
             
-            // 初始位置：球形分布
+            // 使用Fibonacci球面算法进行最均匀分布
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // 2.399963229728653
+            
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                // 球形分布
-                const radius = 2.0;
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.acos(2 * Math.random() - 1);
+                // Fibonacci球面采样
+                const y = 1 - (i / (count - 1)) * 2; // y从1到-1
+                const radius = Math.sqrt(1 - y * y); // 圆柱半径
                 
-                const x = radius * Math.sin(phi) * Math.cos(theta);
-                const y = radius * Math.sin(phi) * Math.sin(theta);
-                const z = radius * Math.cos(phi);
+                const theta = goldenAngle * i; // 黄金角度
                 
-                currentPosition[i3] = x;
-                currentPosition[i3 + 1] = y;
-                currentPosition[i3 + 2] = z;
+                const x = Math.cos(theta) * radius;
+                const z = Math.sin(theta) * radius;
                 
-                targetPosition[i3] = x;
-                targetPosition[i3 + 1] = y;
-                targetPosition[i3 + 2] = z;
+                // 分层半径：内部密集，外部稀疏
+                const layer = i / count;
+                const baseRadius = 0.8 + Math.pow(layer, 0.7) * 3.5;
                 
-                velocity[i3] = (Math.random() - 0.5) * 0.5;
-                velocity[i3 + 1] = (Math.random() - 0.5) * 0.5;
-                velocity[i3 + 2] = (Math.random() - 0.5) * 0.5;
+                // 动态分布：每1000个粒子一组，半径递增
+                const groupSize = 1000;
+                const groupIndex = Math.floor(i / groupSize);
+                const groupFraction = (i % groupSize) / groupSize;
+                
+                const finalRadius = baseRadius + groupIndex * 0.3;
+                
+                // 轻微随机化避免重叠
+                const jitter = 0.02;
+                currentPosition[i3] = x * finalRadius + (Math.random() - 0.5) * jitter;
+                currentPosition[i3 + 1] = y * finalRadius + (Math.random() - 0.5) * jitter;
+                currentPosition[i3 + 2] = z * finalRadius + (Math.random() - 0.5) * jitter;
+                
+                // 目标位置初始为相同值
+                targetPosition[i3] = currentPosition[i3];
+                targetPosition[i3 + 1] = currentPosition[i3 + 1];
+                targetPosition[i3 + 2] = currentPosition[i3 + 2];
+                
+                // 初始微小速度
+                velocity[i3] = (Math.random() - 0.5) * 0.1;
+                velocity[i3 + 1] = (Math.random() - 0.5) * 0.1;
+                velocity[i3 + 2] = (Math.random() - 0.5) * 0.1;
             }
             
             geometry.setAttribute('position', new THREE.BufferAttribute(currentPosition, 3));
             
-            // 材质
-            const material = new THREE.PointsMaterial({
-                color: CONFIG.PARTICLE_COLOR,
-                size: CONFIG.PARTICLE_SIZE,
-                transparent: true,
-                opacity: 0.8,
-                sizeAttenuation: true,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
+        // 材质 - 最终优化：清晰的粒子外观
+        const material = new THREE.PointsMaterial({
+            color: CONFIG.PARTICLE_COLOR,
+            size: 1.0, // 最终优化：进一步减小到1.0
+            transparent: true,
+            opacity: 0.9,
+            sizeAttenuation: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            antialias: true
+        });
             
             // 创建粒子系统
             particles = new THREE.Points(geometry, material);
@@ -277,8 +295,8 @@
             particleSystem = {
                 geometry: geometry,
                 count: count,
-                state: 'sphere', // 当前状态
-                transition: 0 // 过渡进度
+                state: 'sphere',
+                transition: 0
             };
         }
         
@@ -357,20 +375,39 @@
             const count = CONFIG.PARTICLE_COUNT;
             const time = Date.now() * 0.001;
             
+            // 使用Fibonacci球面算法进行最均匀分布
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // 2.399963229728653
+            
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                // 球形分布 + 动态脉动
-                const phi = Math.acos(-1 + (2 * i) / count);
-                const theta = Math.sqrt(count * Math.PI) * phi;
+                // Fibonacci球面采样
+                const y = 1 - (i / (count - 1)) * 2; // y从1到-1
+                const radius2D = Math.sqrt(1 - y * y); // 圆柱半径
                 
-                // 添加动态效果
-                const pulse = 0.2 + 0.1 * Math.sin(time * 2 + i * 0.1);
-                const radius = 2.5 + pulse;
+                const theta = goldenAngle * i; // 黄金角度
                 
-                targetPosition[i3] = radius * Math.sin(phi) * Math.cos(theta);
-                targetPosition[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                targetPosition[i3 + 2] = radius * Math.cos(phi);
+                // 基础球形坐标
+                let x = Math.cos(theta) * radius2D;
+                let z = Math.sin(theta) * radius2D;
+                
+                // 分层半径：内部密集，外部稀疏
+                const layer = i / count;
+                const baseRadius = 1.2 + Math.pow(layer, 0.6) * 4.0; // 更平滑的分布
+                
+                // 动态脉动效果
+                const pulse = 0.2 + 0.1 * Math.sin(time + i * 0.01);
+                const finalRadius = baseRadius + pulse;
+                
+                // 轻微随机偏移避免完全重叠
+                const jitter = 0.03;
+                x = x * finalRadius + (Math.random() - 0.5) * jitter;
+                const yFinal = y * finalRadius + (Math.random() - 0.5) * jitter;
+                z = z * finalRadius + (Math.random() - 0.5) * jitter;
+                
+                targetPosition[i3] = x;
+                targetPosition[i3 + 1] = yFinal;
+                targetPosition[i3 + 2] = z;
             }
         }
         
@@ -387,13 +424,21 @@
                     targetPosition[i3 + 1] = point.y;
                     targetPosition[i3 + 2] = point.z;
                 } else {
-                    // 剩余粒子分布在文字周围
+                    // 剩余粒子使用Fibonacci球面分布在文字周围
                     const idx = i - textCount;
-                    const angle = (idx / (count - textCount)) * Math.PI * 2;
+                    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+                    
+                    const y = 1 - (idx / (count - textCount - 1)) * 2;
+                    const radius2D = Math.sqrt(1 - y * y);
+                    const theta = goldenAngle * idx;
+                    
+                    const x = Math.cos(theta) * radius2D;
+                    const z = Math.sin(theta) * radius2D;
+                    
                     const radius = 3.0;
-                    targetPosition[i3] = Math.cos(angle) * radius;
-                    targetPosition[i3 + 1] = Math.sin(angle) * radius * 0.3;
-                    targetPosition[i3 + 2] = (Math.random() - 0.5) * 0.5;
+                    targetPosition[i3] = x * radius;
+                    targetPosition[i3 + 1] = y * radius * 0.3;
+                    targetPosition[i3 + 2] = z * 0.5;
                 }
             }
         }
@@ -401,57 +446,119 @@
         function updateRingTargets() {
             const count = CONFIG.PARTICLE_COUNT;
             const time = Date.now() * 0.001;
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
             
+            // 使用Fibonacci分布在圆环上，避免粒子重叠
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                const angle = (i / count) * Math.PI * 2;
-                const radius = 2.0 + 0.3 * Math.sin(time * 3 + i * 0.05);
+                // 创建双层圆环
+                const layer = i % 2; // 0或1
+                const baseRadius = 2.0 + layer * 0.5 + 0.3 * Math.sin(time * 3 + i * 0.02);
                 
-                targetPosition[i3] = Math.cos(angle) * radius;
-                targetPosition[i3 + 1] = Math.sin(angle) * radius;
-                targetPosition[i3 + 2] = Math.sin(angle * 2 + time) * 0.5;
+                // 在圆环上均匀分布
+                const t = Math.floor(i / 2); // 每层粒子数
+                const angle = (t / (count / 2)) * Math.PI * 2;
+                
+                // 添加高度变化
+                const height = Math.sin(angle * 3 + time * 2) * 0.5;
+                
+                targetPosition[i3] = Math.cos(angle) * baseRadius;
+                targetPosition[i3 + 1] = height;
+                targetPosition[i3 + 2] = Math.sin(angle) * baseRadius;
             }
         }
         
         function updateStarTargets() {
             const count = CONFIG.PARTICLE_COUNT;
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
             
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                const angle = (i / count) * Math.PI * 2;
-                const starPoints = 5;
-                const radius = 2.5;
+                // 将粒子分组，一部分形成星形，一部分在周围均匀分布
+                const starGroupSize = Math.floor(count * 0.7);
+                const outerGroupSize = count - starGroupSize;
                 
-                // 星形公式
-                const k = Math.floor(angle / (Math.PI / starPoints));
-                const r = (k % 2 === 0) ? radius : radius * 0.4;
-                const a = angle;
-                
-                targetPosition[i3] = Math.cos(a) * r;
-                targetPosition[i3 + 1] = Math.sin(a) * r;
-                targetPosition[i3 + 2] = (Math.random() - 0.5) * 0.3;
+                if (i < starGroupSize) {
+                    // 星形部分
+                    const t = (i / starGroupSize) * Math.PI * 2;
+                    const starPoints = 5;
+                    
+                    // 确定当前点属于哪个星角
+                    const segment = Math.floor(t / (Math.PI * 2 / starPoints));
+                    const segmentT = (t % (Math.PI * 2 / starPoints)) / (Math.PI * 2 / starPoints);
+                    
+                    // 星形半径变化
+                    const innerRadius = 1.0;
+                    const outerRadius = 2.5;
+                    const radius = segment % 2 === 0 
+                        ? innerRadius + (outerRadius - innerRadius) * segmentT
+                        : outerRadius - (outerRadius - innerRadius) * segmentT;
+                    
+                    const angle = t;
+                    const height = (Math.random() - 0.5) * 0.2;
+                    
+                    targetPosition[i3] = Math.cos(angle) * radius;
+                    targetPosition[i3 + 1] = height;
+                    targetPosition[i3 + 2] = Math.sin(angle) * radius;
+                } else {
+                    // 外围均匀分布
+                    const idx = i - starGroupSize;
+                    const y = 1 - (idx / (outerGroupSize - 1)) * 2;
+                    const radius2D = Math.sqrt(1 - y * y);
+                    const theta = goldenAngle * idx;
+                    
+                    const x = Math.cos(theta) * radius2D;
+                    const z = Math.sin(theta) * radius2D;
+                    
+                    const radius = 3.5;
+                    targetPosition[i3] = x * radius;
+                    targetPosition[i3 + 1] = y * radius * 0.3;
+                    targetPosition[i3 + 2] = z * radius;
+                }
             }
         }
         
         function updateHeartTargets() {
             const count = CONFIG.PARTICLE_COUNT;
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+            
+            // 心形核心点数
+            const heartCoreSize = Math.floor(count * 0.6);
+            const outerSize = count - heartCoreSize;
             
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 
-                const t = (i / count) * Math.PI * 2;
-                
-                // 心形参数方程
-                const scale = 1.8;
-                const x = scale * 16 * Math.pow(Math.sin(t), 3);
-                const y = scale * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
-                const z = (Math.random() - 0.5) * 0.5;
-                
-                targetPosition[i3] = x * 0.15;
-                targetPosition[i3 + 1] = y * 0.15;
-                targetPosition[i3 + 2] = z;
+                if (i < heartCoreSize) {
+                    // 心形部分
+                    const t = (i / heartCoreSize) * Math.PI * 2;
+                    
+                    // 心形参数方程
+                    const scale = 1.8;
+                    const x = scale * 16 * Math.pow(Math.sin(t), 3);
+                    const y = scale * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                    const z = (Math.random() - 0.5) * 0.5;
+                    
+                    targetPosition[i3] = x * 0.15;
+                    targetPosition[i3 + 1] = y * 0.15;
+                    targetPosition[i3 + 2] = z;
+                } else {
+                    // 外围均匀分布
+                    const idx = i - heartCoreSize;
+                    const y = 1 - (idx / (outerSize - 1)) * 2;
+                    const radius2D = Math.sqrt(1 - y * y);
+                    const theta = goldenAngle * idx;
+                    
+                    const x = Math.cos(theta) * radius2D;
+                    const z = Math.sin(theta) * radius2D;
+                    
+                    const radius = 3.5;
+                    targetPosition[i3] = x * radius;
+                    targetPosition[i3 + 1] = y * radius * 0.3;
+                    targetPosition[i3 + 2] = z * radius;
+                }
             }
         }
         
