@@ -942,19 +942,17 @@
                 completeStep('tree');
 
                 // 3. 设置后期处理
+                updateProgress(45, '正在设置后期处理...', 'postprocess');
+                setupPostProcessing();
+                completeStep('postprocess');
+
+                // 4. 开始动画循环
+                animate();
+
+                // 5. 请求摄像头权限
                 setTimeout(() => {
-                    updateProgress(45, '正在设置后期处理...', 'postprocess');
-                    setupPostProcessing();
-                    completeStep('postprocess');
-
-                    // 4. 开始动画循环
-                    animate();
-
-                    // 5. 请求摄像头权限
-                    setTimeout(() => {
-                        updateProgress(65, '正在请求摄像头权限...', 'camera');
-                        initCameraAndHands();
-                    }, 500);
+                    updateProgress(65, '正在请求摄像头权限...', 'camera');
+                    initCameraAndHands();
                 }, 300);
             }, 300);
         }
