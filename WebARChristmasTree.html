@@ -870,6 +870,29 @@
             <button class="icon-btn glass-panel" id="toggle-ui-btn" onclick="toggleUI()">
                 <span>👁</span> <span>隐藏界面</span>
             </button>
+            <!-- 快捷键提示 - 独立的面板，不受隐藏界面影响 -->
+            <div id="shortcuts-panel" class="glass-panel" style="margin-top: 12px; padding: 12px; min-width: 180px; pointer-events: auto;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 4px;">
+                    ⌨️ 快捷键
+                </div>
+                <div style="font-size: 10px; color: var(--white-dim); line-height: 1.6;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span>H</span><span style="color: var(--gold-light);">显示/隐藏界面</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span>空格</span><span style="color: var(--gold-light);">重置聚合</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span>Z</span><span style="color: var(--gold-light);">切换照片</span>
+                    </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span>C</span><span style="color: var(--gold-light);">显示/隐藏摄像头</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span>↑↓←→</span><span style="color: var(--gold-light);">手动旋转</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 左侧主边栏 -->
@@ -1160,6 +1183,9 @@
         };
 
         async function init() {
+            // 立即绑定快捷键，确保在加载过程中就能响应
+            setupEvents();
+            
             // 显示进度条
             progressManager.init();
             
@@ -1192,7 +1218,7 @@
             
             progressManager.next('设置后期处理...');
             setupPostProcessing();
-            setupEvents();
+            // setupEvents(); // 已移动到函数开头
             animate();
             
             const loader = document.getElementById('loader');
@@ -1238,7 +1264,14 @@
             STATE.uiVisible=!STATE.uiVisible; 
             document.getElementById('left-sidebar').classList.toggle('panel-hidden', !STATE.uiVisible); 
             document.getElementById('debug-info').classList.toggle('debug-hidden', !STATE.uiVisible);
-            document.getElementById('top-right-controls').classList.toggle('panel-hidden', !STATE.uiVisible);
+            
+            // 右上角控制组 - 包括快捷键面板
+            const topRightControls = document.getElementById('top-right-controls');
+            if (!STATE.uiVisible) {
+                topRightControls.classList.add('panel-hidden');
+            } else {
+                topRightControls.classList.remove('panel-hidden');
+            }
             
             // 显示提示
             const hint = document.getElementById('gesture-hint');
@@ -1453,69 +1486,121 @@
                 }
             });
             
-            document.getElementById('file-input').addEventListener('change', (e) => {
-                const files = e.target.files; if(!files.length) return;
-                const hint = document.getElementById('gesture-hint');
-                hint.textContent = `正在处理 ${files.length} 张照片...`;
-                hint.classList.add('show');
-                
-                Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        const base64 = ev.target.result;
-                        const id = savePhotoToDB(base64);
-                        createPhotoTexture(base64, id);
-                    }
-                    reader.readAsDataURL(f);
-                });
-                
-                setTimeout(() => {
-                    hint.textContent = "照片上传完成！";
-                    setTimeout(() => hint.classList.remove('show'), 1500);
-                }, 1000);
-            });
-
-            document.getElementById('music-input').addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    saveMusicToDB(file);
-                    bgmAudio.src = URL.createObjectURL(file);
+            // 文件上传事件
+            const fileInput = document.getElementById('file-input');
+            if(fileInput && !fileInput._bound) {
+                fileInput._bound = true;
+                fileInput.addEventListener('change', (e) => {
+                    const files = e.target.files; if(!files.length) return;
                     const hint = document.getElementById('gesture-hint');
-                    hint.textContent = "音乐已加载，点击播放";
+                    hint.textContent = `正在处理 ${files.length} 张照片...`;
                     hint.classList.add('show');
-                    setTimeout(() => hint.classList.remove('show'), 2000);
-                    updatePlayBtnUI(false);
-                }
-            });
+                    
+                    Array.from(files).forEach(f => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            const base64 = ev.target.result;
+                            const id = savePhotoToDB(base64);
+                            createPhotoTexture(base64, id);
+                        }
+                        reader.readAsDataURL(f);
+                    });
+                    
+                    setTimeout(() => {
+                        hint.textContent = "照片上传完成！";
+                        setTimeout(() => hint.classList.remove('show'), 1500);
+                    }, 1000);
+                });
+            }
 
-            window.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-                const k = e.key.toLowerCase();
-                const code = e.code;
-                if (k === 'h') window.toggleUI();
-                if (code === 'Space') { 
-                    e.preventDefault(); 
-                    INPUTS.space = true;
-                    if(STATE.mode !== 'TREE' && !isAnimating) {
-                        if(STATE.mode !== 'TREE') setMode('TREE');
+            // 音乐上传事件
+            const musicInput = document.getElementById('music-input');
+            if(musicInput && !musicInput._bound) {
+                musicInput._bound = true;
+                musicInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        saveMusicToDB(file);
+                        bgmAudio.src = URL.createObjectURL(file);
+                        const hint = document.getElementById('gesture-hint');
+                        hint.textContent = "音乐已加载，点击播放";
+                        hint.classList.add('show');
+                        setTimeout(() => hint.classList.remove('show'), 2000);
+                        updatePlayBtnUI(false);
                     }
-                }
-                if (k === 'z') { INPUTS.z = true; if(!isAnimating) cycleNextPhoto(); }
-                if (code === 'ArrowUp') manualRotateState.x = -1;
-                if (code === 'ArrowDown') manualRotateState.x = 1;
-                if (code === 'ArrowLeft') manualRotateState.y = -1;
-                if (code === 'ArrowRight') manualRotateState.y = 1;
-            });
+                });
+            }
 
-            window.addEventListener('keyup', (e) => {
-                const k = e.key.toLowerCase();
-                const code = e.code;
-                if (k === 'z') INPUTS.z = false;
-                if (code === 'Space') INPUTS.space = false;
-                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
-                    manualRotateState = { x: 0, y: 0 };
-                }
-            });
+            // 键盘事件 - 确保不会重复绑定
+            if(!window._keyboardBound) {
+                window._keyboardBound = true;
+                
+                window.addEventListener('keydown', (e) => {
+                    // 只在输入框外响应快捷键
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+                    
+                    const k = e.key.toLowerCase();
+                    const code = e.code;
+                    
+                    // H - 切换UI显示
+                    if (k === 'h') {
+                        e.preventDefault();
+                        window.toggleUI();
+                    }
+                    
+                    // Space - 重置/聚合模式
+                    if (code === 'Space') { 
+                        e.preventDefault(); 
+                        INPUTS.space = true;
+                        if(STATE.mode !== 'TREE' && !isAnimating) {
+                            setMode('TREE');
+                        }
+                    }
+                    
+                    // Z - 切换照片
+                    if (k === 'z') { 
+                        e.preventDefault();
+                        INPUTS.z = true; 
+                        if(!isAnimating) cycleNextPhoto(); 
+                    }
+                    
+                    // C - 显示/隐藏摄像头
+                    if (k === 'c') {
+                        e.preventDefault();
+                        toggleCameraDisplay();
+                    }
+                    
+                    // 方向键 - 手动旋转
+                    if (code === 'ArrowUp') {
+                        e.preventDefault();
+                        manualRotateState.x = -1;
+                    }
+                    if (code === 'ArrowDown') {
+                        e.preventDefault();
+                        manualRotateState.x = 1;
+                    }
+                    if (code === 'ArrowLeft') {
+                        e.preventDefault();
+                        manualRotateState.y = -1;
+                    }
+                    if (code === 'ArrowRight') {
+                        e.preventDefault();
+                        manualRotateState.y = 1;
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    const k = e.key.toLowerCase();
+                    const code = e.code;
+                    
+                    if (k === 'z') INPUTS.z = false;
+                    if (code === 'Space') INPUTS.space = false;
+                    
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
+                        manualRotateState = { x: 0, y: 0 };
+                    }
+                });
+            }
         }
 
         function initThree() { 
