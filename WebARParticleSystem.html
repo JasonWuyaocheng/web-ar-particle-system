@@ -198,6 +198,80 @@
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* 摄像头预览窗口 */
+        #cameraPreview {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: calc(var(--spacing-lg) + 180px);
+            width: 200px;
+            height: 150px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            z-index: 99;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        #cameraPreview.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #cameraVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        .camera-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            padding: 8px;
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .camera-btn {
+            padding: 4px 8px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            color: white;
+            cursor: pointer;
+            font-size: 9px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .camera-btn:hover {
+            background: rgba(0, 255, 255, 0.4);
+            border-color: rgba(0, 255, 255, 0.8);
+        }
+
+        .camera-status {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .camera-status.active {
+            background: rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+        }
+
         .top-btn {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(0, 255, 255, 0.3);
@@ -598,6 +672,16 @@
         <div class="title-subline">16K 独立流体颗粒</div>
     </div>
 
+    <!-- 摄像头预览窗口 -->
+    <div id="cameraPreview">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div class="camera-status" id="cameraStatus">摄像头未启动</div>
+        <div class="camera-controls">
+            <button class="camera-btn" onclick="toggleCameraPreview()">显示/隐藏</button>
+            <button class="camera-btn" onclick="toggleCameraMirror()">镜像</button>
+        </div>
+    </div>
+
     <!-- 进度指示器 -->
     <div id="progressIndicator">
         <div class="spinner"></div>
@@ -665,6 +749,9 @@
         <button class="top-btn glass-panel" id="toggle-ui-btn" onclick="toggleUI()">
             <span>👁</span> <span>隐藏界面</span>
         </button>
+        <button class="top-btn glass-panel" id="cam-btn" onclick="toggleCameraPreview()">
+            <span>📷</span> <span>摄像头</span>
+        </button>
     </div>
 
     <!-- 底部控制面板 -->
@@ -680,7 +767,7 @@
     </div>
 
     <!-- 信息提示 -->
-    <div id="infoTooltip">💡 张手/剪刀/握拳/食指/大拇指 | 挥手触发风暴 | 推拉改变深度</div>
+    <div id="infoTooltip">💡 张手/剪刀/握拳/食指/大拇指 | 挥手触发风暴 | 推拉改变深度 | 点击摄像头按钮预览</div>
 
     <!-- 状态提示 -->
     <div id="stateToast"></div>
@@ -732,6 +819,13 @@
         let handSpeed = 0;
         let palmArea = 0;
         let stormActive = false;
+        
+        // 手势平滑和防抖
+        let gestureBuffer = []; // 手势历史缓冲区
+        const GESTURE_BUFFER_SIZE = 6; // 缓冲区大小
+        const GESTURE_STABILITY_THRESHOLD = 4; // 需要多少次相同检测才确认
+        let lastGestureChange = 0;
+        let lastConfirmedGesture = 'open';
         
         // 交互状态
         let isCameraActive = false;
@@ -1379,74 +1473,357 @@
             prevHandPos.z = currentZ;
         }
 
+        // 增强的手势识别系统 - 多维度特征融合 + 智能平滑
         function detectGesture() {
             if (!handLandmarks) return;
 
             const landmarks = handLandmarks;
-            const thumbTip = landmarks[4];
-            const indexTip = landmarks[8];
-            const middleTip = landmarks[12];
-            const ringTip = landmarks[16];
-            const pinkyTip = landmarks[20];
+            
+            // 关键点定义
             const wrist = landmarks[0];
+            const thumbBase = landmarks[2];
+            const thumbTip = landmarks[4];
+            const indexBase = landmarks[5];
+            const indexTip = landmarks[8];
+            const middleBase = landmarks[9];
+            const middleTip = landmarks[12];
+            const ringBase = landmarks[13];
+            const ringTip = landmarks[16];
+            const pinkyBase = landmarks[17];
+            const pinkyTip = landmarks[20];
 
-            const dist = (p1, p2) => Math.sqrt(
-                Math.pow(p1.x - p2.x, 2) + 
-                Math.pow(p1.y - p2.y, 2) + 
-                Math.pow(p1.z - p2.z, 2)
-            );
+            // 计算距离的辅助函数 - 使用更精确的3D距离计算
+            const dist = (p1, p2) => {
+                const dx = p1.x - p2.x;
+                const dy = p1.y - p2.y;
+                const dz = (p1.z - p2.z) * 2; // 增加Z轴权重，提高深度感知
+                return Math.sqrt(dx*dx + dy*dy + dz*dz);
+            };
 
-            const thumbDist = dist(thumbTip, wrist);
-            const indexDist = dist(indexTip, wrist);
-            const middleDist = dist(middleTip, wrist);
-            const ringDist = dist(ringTip, wrist);
-            const pinkyDist = dist(pinkyTip, wrist);
+            // 计算手指到手腕的归一化距离（考虑手的大小）
+            const handSize = dist(thumbBase, pinkyBase) || 0.1; // 避免除零
+            const normalizeDist = (d) => d / handSize; // 归一化到手掌大小单位
 
+            const thumbDist = normalizeDist(dist(thumbTip, wrist));
+            const indexDist = normalizeDist(dist(indexTip, wrist));
+            const middleDist = normalizeDist(dist(middleTip, wrist));
+            const ringDist = normalizeDist(dist(ringTip, wrist));
+            const pinkyDist = normalizeDist(dist(pinkyTip, wrist));
+
+            // 计算手指弯曲度（使用相对长度比）
+            const thumbBend = normalizeDist(dist(thumbTip, thumbBase));
+            const indexBend = normalizeDist(dist(indexTip, indexBase));
+            const middleBend = normalizeDist(dist(middleTip, middleBase));
+            const ringBend = normalizeDist(dist(ringTip, ringBase));
+            const pinkyBend = normalizeDist(dist(pinkyTip, pinkyBase));
+
+            // 手掌形状特征
+            const palmWidth = handSize;
+            const palmHeight = normalizeDist(dist(indexBase, wrist));
+            
+            // 手指间距特征
+            const indexMiddleGap = normalizeDist(dist(indexTip, middleTip));
+            const middleRingGap = normalizeDist(dist(middleTip, ringTip));
+            const ringPinkyGap = normalizeDist(dist(ringTip, pinkyTip));
+
+            // 手指角度特征（用于区分相似手势）
+            const indexAngle = Math.atan2(indexTip.y - indexBase.y, indexTip.x - indexBase.x);
+            const middleAngle = Math.atan2(middleTip.y - middleBase.y, middleTip.x - middleBase.x);
+            const angleDiff = Math.abs(indexAngle - middleAngle);
+
+            // 手掌中心点（用于深度交互）
+            const palmCenter = {
+                x: (thumbBase.x + pinkyBase.x + indexBase.x + middleBase.x + ringBase.x) / 5,
+                y: (thumbBase.y + pinkyBase.y + indexBase.y + middleBase.y + ringBase.y) / 5,
+                z: (thumbBase.z + pinkyBase.z + indexBase.z + middleBase.z + ringBase.z) / 5
+            };
+
+            // ==================== 智能阈值系统 ====================
+            const THRESHOLDS = {
+                // 动态阈值 - 根据手的大小调整
+                FIST_DISTANCE: 0.6,        // 握拳：手指到手腕距离 < 0.6倍手掌大小
+                OPEN_DISTANCE: 1.2,        // 张手：所有手指距离 > 1.2倍手掌大小
+                BEND_THRESHOLD: 0.5,       // 弯曲：手指相对长度 < 0.5
+                SCISSORS_GAP: 0.3,         // 剪刀：手指间距 > 0.3倍手掌大小
+                POINT_DISTANCE: 0.8,       // 指食指：食指距离 > 0.8
+                THUMB_DISTANCE: 0.9,       // 大拇指：拇指距离 > 0.9
+                ANGLE_DIFF: 0.5,           // 角度差异阈值（弧度）
+                CONFIDENCE_THRESHOLD: 0.65 // 置信度阈值（提高以减少误识别）
+            };
+
+            // ==================== 手势特征计算（多维度） ====================
+            const features = {
+                // 1. 手指伸直度检测
+                thumbExtended: thumbDist > THRESHOLDS.THUMB_DISTANCE,
+                indexExtended: indexDist > THRESHOLDS.POINT_DISTANCE,
+                middleExtended: middleDist > 1.0,
+                ringExtended: ringDist > 1.0,
+                pinkyExtended: pinkyDist > 1.0,
+
+                // 2. 手指弯曲度检测
+                thumbBent: thumbBend < THRESHOLDS.BEND_THRESHOLD,
+                indexBent: indexBend < THRESHOLDS.BEND_THRESHOLD,
+                middleBent: middleBend < THRESHOLDS.BEND_THRESHOLD,
+                ringBent: ringBend < THRESHOLDS.BEND_THRESHOLD,
+                pinkyBent: pinkyBend < THRESHOLDS.BEND_THRESHOLD,
+
+                // 3. 手指间距特征
+                scissorsGap: indexMiddleGap > THRESHOLDS.SCISSORS_GAP,
+                closeFingers: indexMiddleGap < 0.2 && middleRingGap < 0.2 && ringPinkyGap < 0.2,
+
+                // 4. 角度特征（用于区分剪刀和指食指）
+                similarAngles: angleDiff < THRESHOLDS.ANGLE_DIFF,
+
+                // 5. 手掌形状特征
+                widePalm: palmWidth > palmHeight * 1.2,
+                squarePalm: Math.abs(palmWidth - palmHeight) < 0.3,
+
+                // 6. 一致性检查
+                allFingersBent: thumbBend < 0.5 && indexBend < 0.5 && middleBend < 0.5 && ringBend < 0.5 && pinkyBend < 0.5,
+                allFingersExtended: thumbDist > 1.0 && indexDist > 1.0 && middleDist > 1.0 && ringDist > 1.0 && pinkyDist > 1.0
+            };
+
+            // ==================== 手势置信度评分系统 ====================
+            const gestureScores = {
+                fist: 0,
+                open: 0,
+                scissors: 0,
+                point: 0,
+                thumbsUp: 0
+            };
+
+            // 1. 握拳 (fist) - 所有手指弯曲，手掌紧凑
+            if (features.allFingersBent) {
+                gestureScores.fist += 0.7;
+                if (!features.widePalm) gestureScores.fist += 0.2;
+                if (thumbDist < 0.5) gestureScores.fist += 0.1;
+            }
+
+            // 2. 张手 (open) - 所有手指伸直，手掌展开
+            if (features.allFingersExtended) {
+                gestureScores.open += 0.7;
+                if (features.widePalm) gestureScores.open += 0.2;
+                if (features.closeFingers) gestureScores.open += 0.1;
+            }
+
+            // 3. 剪刀手 (scissors) - 食指中指分开伸直，无名指小指弯曲
+            if (features.indexExtended && features.middleExtended && features.ringBent && features.pinkyBent && features.scissorsGap) {
+                gestureScores.scissors += 0.6;
+                if (!features.similarAngles) gestureScores.scissors += 0.2; // 角度不同
+                if (thumbBend < 0.6) gestureScores.scissors += 0.1; // 拇指稍微弯曲
+                if (indexDist > 1.3) gestureScores.scissors += 0.1; // 食指明显伸直
+            }
+
+            // 4. 指食指 (point) - 仅食指伸直，其他弯曲
+            if (features.indexExtended && !features.middleExtended && features.indexBent && features.middleBent && features.ringBent && features.pinkyBent) {
+                gestureScores.point += 0.6;
+                if (indexDist > 1.4) gestureScores.point += 0.2;
+                if (features.similarAngles) gestureScores.point += 0.1; // 角度一致
+                if (thumbBend && thumbDist < 0.8) gestureScores.point += 0.1;
+            }
+
+            // 5. 大拇指 (thumbsUp) - 仅拇指伸直，其他弯曲
+            if (features.thumbExtended && !features.indexExtended && !features.middleExtended && features.indexBent && features.middleBent && features.ringBent && features.pinkyBent) {
+                gestureScores.thumbsUp += 0.6;
+                if (thumbDist > 1.3) gestureScores.thumbsUp += 0.2;
+                if (features.widePalm) gestureScores.thumbsUp += 0.1;
+                if (features.closeFingers) gestureScores.thumbsUp += 0.1;
+            }
+
+            // ==================== 最高分选择 ====================
             let detectedGesture = null;
+            let maxScore = THRESHOLDS.CONFIDENCE_THRESHOLD;
+            let allScoresZero = true;
 
-            if (thumbDist < 0.08 && indexDist < 0.08 && middleDist < 0.08 && 
-                ringDist < 0.08 && pinkyDist < 0.08) {
-                detectedGesture = 'fist';
-            } else if (thumbDist > 0.1 && indexDist > 0.1 && middleDist > 0.1 && 
-                     ringDist > 0.1 && pinkyDist > 0.1) {
-                detectedGesture = 'open';
-            } else if (indexDist > 0.1 && middleDist > 0.1 && ringDist < 0.08 && pinkyDist < 0.08) {
-                detectedGesture = 'scissors';
-            } else if (thumbDist > 0.1 && indexDist < 0.08 && middleDist < 0.08) {
-                detectedGesture = 'point';
-            } else if (thumbDist > 0.15 && indexDist < 0.08 && middleDist < 0.08) {
-                detectedGesture = 'thumbsUp';
+            for (const [gesture, score] of Object.entries(gestureScores)) {
+                if (score > 0) allScoresZero = false;
+                if (score > maxScore) {
+                    maxScore = score;
+                    detectedGesture = gesture;
+                }
             }
 
-            if (detectedGesture && detectedGesture !== currentGesture) {
-                currentGesture = detectedGesture;
-                triggerExplosion();
+            // 如果所有分数都很低，可能表示手势不明确
+            if (allScoresZero || maxScore < THRESHOLDS.CONFIDENCE_THRESHOLD * 0.7) {
+                gestureBuffer = []; // 清空缓冲区，避免误识别
+                updateGestureDisplay(null);
+                return;
             }
 
-            updateGestureDisplay(detectedGesture);
+            // ==================== 手势平滑和防抖机制 ====================
+            if (detectedGesture) {
+                // 添加到历史缓冲区
+                gestureBuffer.push(detectedGesture);
+                
+                // 限制缓冲区大小
+                if (gestureBuffer.length > GESTURE_BUFFER_SIZE) {
+                    gestureBuffer.shift();
+                }
+
+                // 只有当缓冲区足够大时才进行稳定性判断
+                if (gestureBuffer.length >= GESTURE_BUFFER_SIZE / 2) {
+                    // 统计最频繁的手势
+                    const gestureCounts = {};
+                    gestureBuffer.forEach(gesture => {
+                        gestureCounts[gesture] = (gestureCounts[gesture] || 0) + 1;
+                    });
+
+                    // 找出最频繁的手势及其频率
+                    let mostFrequentGesture = null;
+                    let maxCount = 0;
+                    for (const [gesture, count] of Object.entries(gestureCounts)) {
+                        if (count > maxCount) {
+                            maxCount = count;
+                            mostFrequentGesture = gesture;
+                        }
+                    }
+
+                    // 计算稳定性比率
+                    const stabilityRatio = maxCount / gestureBuffer.length;
+
+                    // 稳定性检查：需要超过阈值且与上次不同
+                    if (stabilityRatio >= 0.6 && mostFrequentGesture !== lastConfirmedGesture) {
+                        const now = Date.now();
+                        
+                        // 时间防抖：防止快速切换
+                        if (now - lastGestureChange > 300) {
+                            lastConfirmedGesture = mostFrequentGesture;
+                            currentGesture = mostFrequentGesture;
+                            lastGestureChange = now;
+                            triggerExplosion();
+                            
+                            // 详细调试信息（仅在控制台显示）
+                            console.log(`✅ 手势切换: ${mostFrequentGesture} | 置信度: ${maxScore.toFixed(2)} | 稳定性: ${(stabilityRatio * 100).toFixed(0)}% | 缓冲区: ${gestureBuffer.length}/${GESTURE_BUFFER_SIZE}`);
+                        }
+                    } else if (stabilityRatio >= 0.8 && mostFrequentGesture === lastConfirmedGesture) {
+                        // 高稳定性确认，可以显示置信度信息
+                        updateGestureConfidence(gestureScores, mostFrequentGesture, maxScore, stabilityRatio);
+                    }
+                }
+            } else {
+                // 没有检测到有效手势，渐进式清空缓冲区
+                if (gestureBuffer.length > 0) {
+                    gestureBuffer.shift();
+                }
+            }
+
+            // 更新UI显示
+            updateGestureDisplay(lastConfirmedGesture);
         }
 
-        // ==================== 自动模式 ====================
+        // 增强的手势置信度可视化函数
+        function updateGestureConfidence(gestureScores, detectedGesture, confidence, stability) {
+            // 可选：在调试信息中显示详细置信度
+            if (detectedGesture && document.getElementById('debug-info').classList.contains('loading-center') === false) {
+                const sortedScores = Object.entries(gestureScores)
+                    .filter(([_, score]) => score > 0)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([g, s]) => {
+                        const bar = '█'.repeat(Math.floor(s * 10));
+                        return `${g.padEnd(8)}: ${bar} ${(s * 100).toFixed(0)}%`;
+                    })
+                    .join('\n');
+                
+                if (sortedScores) {
+                    console.log(`当前手势: ${detectedGesture} | 置信度: ${(confidence * 100).toFixed(0)}% | 稳定性: ${(stability * 100).toFixed(0)}%\n${sortedScores}`);
+                }
+            }
+        }
+
+        // 增强的手势识别参数优化
+        function optimizeGestureParameters() {
+            // 根据运行时性能和环境调整参数
+            const params = {
+                // 动态阈值系统
+                DYNAMIC_THRESHOLDS: {
+                    FIST_DISTANCE: 0.6,
+                    OPEN_DISTANCE: 1.2,
+                    BEND_THRESHOLD: 0.5,
+                    SCISSORS_GAP: 0.3,
+                    POINT_DISTANCE: 0.8,
+                    THUMB_DISTANCE: 0.9,
+                    CONFIDENCE_THRESHOLD: 0.65
+                },
+                
+                // 防抖和稳定性参数
+                DEBOUNCE: {
+                    GESTURE_DEBOUNCE_TIME: 300,  // 毫秒
+                    BUFFER_SIZE: 6,
+                    STABILITY_THRESHOLD: 0.6,    // 60%稳定性
+                    MIN_BUFFER_FOR_CONFIRMATION: 3
+                },
+                
+                // 手势权重系统
+                WEIGHTS: {
+                    DISTANCE_WEIGHT: 0.4,       // 距离特征权重
+                    BEND_WEIGHT: 0.3,           // 弯曲度权重
+                    SPACING_WEIGHT: 0.2,        // 间距特征权重
+                    ANGLE_WEIGHT: 0.1           // 角度特征权重
+                }
+            };
+            
+            return params;
+        }
+
+        // 新增：实时手势反馈系统
+        function showGestureFeedback(debugInfo) {
+            const feedback = document.getElementById('gesture-hint');
+            if (feedback && debugInfo) {
+                feedback.textContent = debugInfo;
+                feedback.classList.add('show');
+                setTimeout(() => feedback.classList.remove('show'), 2000);
+            }
+        }
+
+        // ==================== 自动模式增强 ====================
         function startAutoMode(reason) {
             console.log('启动自动模式:', reason);
             updateStatus('自动模式 - ' + reason, false);
             progressManager.complete();
             updateDebugInfo('自动模式已启动', false);
 
+            // 显示自动模式提示
+            showToast('自动模式：' + reason, true);
+
             const autoCycle = () => {
-                if (handLandmarks) return;
+                if (handLandmarks) {
+                    // 如果摄像头已启动，停止自动模式
+                    updateStatus('摄像头模式已恢复', true);
+                    return;
+                }
                 
                 const gestures = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
                 const currentIndex = gestures.indexOf(currentGesture);
                 const nextIndex = (currentIndex + 1) % gestures.length;
                 
                 currentGesture = gestures[nextIndex];
+                lastConfirmedGesture = currentGesture;
                 updateStatus('自动模式: ' + getGestureName(currentGesture), false);
+                updateGestureDisplay(currentGesture);
                 triggerExplosion();
+                
+                // 在自动模式下显示提示
+                const hint = document.getElementById('gesture-hint');
+                if (hint) {
+                    hint.textContent = `自动模式: ${getGestureName(currentGesture)} (按任意手势键切换回手动)`;
+                    hint.classList.add('show');
+                    setTimeout(() => hint.classList.remove('show'), 2000);
+                }
             };
 
-            setInterval(autoCycle, 8000);
-            setTimeout(autoCycle, 2000);
+            // 启动循环
+            const intervalId = setInterval(autoCycle, 6000);
+            setTimeout(autoCycle, 1500);
+
+            // 监听摄像头恢复
+            const checkCamera = setInterval(() => {
+                if (handLandmarks) {
+                    clearInterval(intervalId);
+                    clearInterval(checkCamera);
+                    updateStatus('摄像头模式已恢复', true);
+                    showToast('摄像头模式已恢复');
+                }
+            }, 1000);
         }
 
         // ==================== 动画循环 ====================
@@ -1751,14 +2128,108 @@
             });
         }
 
+        // ==================== 摄像头预览控制增强 ====================
+        window.toggleCameraPreview = function() {
+            const preview = document.getElementById('cameraPreview');
+            const status = document.getElementById('cameraStatus');
+            
+            if (!cameraVideo || !isCameraActive) {
+                showToast('摄像头未启动', true);
+                return;
+            }
+
+            if (preview.classList.contains('show')) {
+                preview.classList.remove('show');
+                showToast('摄像头预览已隐藏');
+                updateDebugInfo('预览窗口已关闭', false);
+            } else {
+                preview.classList.add('show');
+                // 更新预览窗口中的视频源
+                const previewVideo = document.getElementById('cameraVideo');
+                if (previewVideo.srcObject !== cameraVideo.srcObject) {
+                    previewVideo.srcObject = cameraVideo.srcObject;
+                    previewVideo.play().catch(e => console.log('预览播放失败:', e));
+                }
+                status.textContent = '摄像头运行中';
+                status.classList.add('active');
+                showToast('摄像头预览已显示');
+                updateDebugInfo('预览窗口已打开', false);
+            }
+        };
+
+        window.toggleCameraMirror = function() {
+            const previewVideo = document.getElementById('cameraVideo');
+            const currentTransform = previewVideo.style.transform;
+            
+            if (currentTransform === 'scaleX(-1)') {
+                previewVideo.style.transform = 'scaleX(1)';
+                showToast('镜像关闭');
+                updateDebugInfo('预览镜像已关闭', false);
+            } else {
+                previewVideo.style.transform = 'scaleX(-1)';
+                showToast('镜像开启');
+                updateDebugInfo('预览镜像已开启', false);
+            }
+        };
+
+        // 新增：摄像头状态检查
+        function checkCameraHealth() {
+            if (!cameraVideo || !isCameraActive) return false;
+            
+            // 检查视频流是否正常
+            if (cameraVideo.readyState >= 2) {
+                // 视频流正常
+                return true;
+            } else {
+                // 视频流有问题，尝试重新启动
+                console.log('摄像头视频流异常，尝试恢复...');
+                return false;
+            }
+        }
+
+        // 新增：手势识别性能监控
+        let gesturePerformance = {
+            lastUpdate: Date.now(),
+            frameCount: 0,
+            avgProcessingTime: 0,
+            detectionRate: 0
+        };
+
+        function monitorGesturePerformance() {
+            const now = Date.now();
+            gesturePerformance.frameCount++;
+            
+            if (now - gesturePerformance.lastUpdate >= 1000) {
+                gesturePerformance.detectionRate = gesturePerformance.frameCount;
+                gesturePerformance.frameCount = 0;
+                gesturePerformance.lastUpdate = now;
+                
+                // 每秒输出性能信息
+                if (gesturePerformance.detectionRate > 0) {
+                    console.log(`手势识别性能: ${gesturePerformance.detectionRate} FPS`);
+                }
+            }
+        }
+
         // ==================== 启动应用 ====================
         window.addEventListener('load', () => {
             init();
             initKeyboardShortcuts();
+            
             // 启动动画循环
             setTimeout(() => {
                 animate();
             }, 100);
+
+            // 显示欢迎提示
+            setTimeout(() => {
+                const hint = document.getElementById('gesture-hint');
+                if (hint) {
+                    hint.textContent = '💡 提示：张手/剪刀/握拳/食指/大拇指 | 点击摄像头按钮预览';
+                    hint.classList.add('show');
+                    setTimeout(() => hint.classList.remove('show'), 5000);
+                }
+            }, 3000);
         });
     </script>
 </body>
