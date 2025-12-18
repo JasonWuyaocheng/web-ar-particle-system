@@ -1,6 +1,12 @@
 # WebAR 粒子互动系统 & 圣诞树交互系统 & 星球粒子系统
 
 这是一个基于 Three.js 和 MediaPipe Hands 的 WebAR 互动应用集合，包含三个完整的3D交互体验：粒子系统、圣诞树系统和星球粒子系统。
+### 在线体验
+GitHub Pages 部署版本：
+- 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
+- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html
+- 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
+
 
 ## 🌟 核心功能
 
@@ -333,5 +339,6 @@ MIT License - 可自由使用、修改和分发
 | 星球星环 | 0.064 | **0.032** | **50%** | 8,000 | 圆形小球 |
 
 如遇问题，请检查控制台错误信息或参考故障排除章节。
+
 
 
