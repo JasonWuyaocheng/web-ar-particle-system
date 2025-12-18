@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子星球 - 手势控制 (完全离线版)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        canvas { display: block; }
+        
+        #input-video {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 170, 0, 0.3);
+        }
+        
+        h1 { font-size: 1.2rem; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; color: #ffaa00; }
+        .instruction { font-size: 0.9rem; margin-bottom: 5px; display: flex; align-items: center; }
+        .icon { margin-right: 8px; font-weight: bold; color: #ffaa00; }
+        
+        #loading {
+            position: absolute;
+            top: 50%; width: 100%; text-align: center;
+            color: #ffaa00; font-size: 1.5rem;
+            transform: translateY(-50%);
+            transition: opacity 0.5s;
+            pointer-events: none;
+            background: rgba(0,0,0,0.9);
+            padding: 30px 0;
+            border-top: 2px solid #ffaa00;
+            border-bottom: 2px solid #ffaa00;
+        }
+        
+        #perf-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+            font-family: monospace;
+        }
+
+        #debug-camera {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 160px;
+            height: 120px;
+            border: 2px solid #ffaa00;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            background: #000;
+            z-index: 15;
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.5);
+        }
+
+        #debug-camera video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #debug-toggle {
+            position: absolute;
+            bottom: 150px;
+            left: 20px;
+            background: rgba(255, 170, 0, 0.3);
+            border: 1px solid #ffaa00;
+            color: #ffaa00;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            z-index: 16;
+            transition: all 0.3s;
+            display: none;
+            font-weight: bold;
+        }
+
+        #debug-toggle:hover {
+            background: rgba(255, 170, 0, 0.6);
+            box-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+        }
+
+        #debug-status {
+            position: absolute;
+            bottom: 190px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            display: none;
+            z-index: 16;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: monospace;
+            max-width: 250px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 错误提示 */
+        #error-notice {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(200, 0, 0, 0.95);
+            border: 2px solid #ff4444;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            color: #fff;
+            display: none;
+            z-index: 100;
+            max-width: 500px;
+            box-shadow: 0 0 30px rgba(200, 0, 0, 0.5);
+        }
+        
+        #error-notice h3 { margin-top: 0; color: #fff; }
+        #error-notice button {
+            background: #fff;
+            color: #c00;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        #error-notice button:hover {
+            background: #ff4444;
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        /* 成功提示 */
+        #success-notice {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 200, 0, 0.95);
+            border: 2px solid #00ff00;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            color: #fff;
+            display: none;
+            z-index: 100;
+            max-width: 400px;
+            box-shadow: 0 0 30px rgba(0, 200, 0, 0.5);
+        }
+        
+        #success-notice h3 { margin-top: 0; color: #fff; }
+
+        /* 状态指示器 */
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #666;
+        }
+        .status-dot.active { background: #00ff00; box-shadow: 0 0 6px #00ff00; }
+        .status-dot.error { background: #ff0000; box-shadow: 0 0 6px #ff0000; }
+        .status-dot.warning { background: #ffaa00; box-shadow: 0 0 6px #ffaa00; }
+
+        /* 顶部状态栏 */
+        #system-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+        }
+
+        #system-status div {
+            margin: 3px 0;
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 系统状态栏 -->
+    <div id="system-status">
+        <div><span class="status-dot" id="dot-three"></span>Three.js</div>
+        <div><span class="status-dot" id="dot-media"></span>MediaPipe</div>
+        <div><span class="status-dot" id="dot-camera"></span>摄像头</div>
+        <div><span class="status-dot" id="dot-system"></span>系统就绪</div>
+    </div>
+
+    <!-- UI 层 -->
+    <div id="ui-layer">
+        <h1>Hand Control Universe</h1>
+        <div class="instruction"><span class="icon">↺</span> 旋转手掌 → 旋转星球</div>
+        <div class="instruction"><span class="icon">✊</span> 握拳 + 远离 → 拉远镜头</div>
+        <div class="instruction"><span class="icon">🖐</span> 张开 + 靠近 → 拉近镜头</div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loading">
+        正在初始化完全离线版本...<br>
+        <span style="font-size:0.8rem; color:#fff;">
+            所有资源已下载到本地<br>
+            请允许摄像头权限
+        </span>
+    </div>
+
+    <!-- 性能指示器 -->
+    <div id="perf-indicator" style="opacity: 0;">FPS: <span id="fps">--</span></div>
+
+    <!-- 调试控件 -->
+    <button id="debug-toggle">🔍 调试摄像头</button>
+    <div id="debug-status">状态: 等待初始化...</div>
+    
+    <!-- 调试摄像头预览 -->
+    <div id="debug-camera">
+        <video id="debug-video" autoplay playsinline muted></video>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error-notice">
+        <h3>⚠️ 初始化失败</h3>
+        <p id="error-message"></p>
+        <div style="text-align: left; margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85rem;">
+            <strong>可能原因：</strong><br>
+            • 浏览器不支持摄像头<br>
+            • 本地文件被浏览器安全策略阻止<br>
+            • 操作系统不支持摄像头访问
+        </div>
+        <button onclick="location.reload()">🔄 重试</button>
+    </div>
+
+    <!-- 成功提示 -->
+    <div id="success-notice">
+        <h3>✅ 系统就绪</h3>
+        <p>请点击屏幕开始体验手势控制</p>
+        <div style="font-size: 0.85rem; margin-top: 10px; opacity: 0.8;">
+            无需网络，完全本地运行
+        </div>
+    </div>
+
+    <!-- MediaPipe 需要的隐藏视频元素 -->
+    <video id="input-video"></video>
+
+    <script>
+        // ==================== 配置 ====================
+        const CONFIG = {
+            localPaths: {
+                three: './local-libs/three.min.js',
+                mediapipe: {
+                    hands: './local-libs/mediapipe-hands.js',
+                    camera: './local-libs/mediapipe-camera-utils.js',
+                    drawing: './local-libs/mediapipe-drawing-utils.js',
+                    control: './local-libs/mediapipe-control-utils.js'
+                }
+            }
+        };
+
+        // 状态管理
+        const STATE = {
+            threeLoaded: false,
+            mediapipeLoaded: false,
+            cameraReady: false,
+            systemReady: false,
+            errors: [],
+            loadedFiles: []
+        };
+
+        // 更新状态指示器
+        function updateStatusIndicator(type, status) {
+            const dot = document.getElementById(`dot-${type}`);
+            if (dot) {
+                dot.className = 'status-dot';
+                if (status === 'loaded') dot.classList.add('active');
+                else if (status === 'error') dot.classList.add('error');
+                else if (status === 'loading') dot.classList.add('warning');
+            }
+        }
+
+        // 工具函数：显示错误
+        function showError(message, details = '') {
+            console.error('❌ Error:', message, details);
+            const errorEl = document.getElementById('error-notice');
+            const messageEl = document.getElementById('error-message');
+            const loadingEl = document.getElementById('loading');
+            
+            loadingEl.style.display = 'none';
+            errorEl.style.display = 'block';
+            messageEl.innerHTML = `<strong>${message}</strong><br><small>${details}</small>`;
+            
+            STATE.errors.push({ message, details, time: new Date() });
+            updateStatusIndicator('system', 'error');
+        }
+
+        // 工具函数：显示状态
+        function showStatus(message, type = 'info') {
+            const loadingEl = document.getElementById('loading');
+            const debugStatus = document.getElementById('debug-status');
+            const statusEl = document.getElementById('system-status');
+            
+            loadingEl.innerHTML = message;
+            if (debugStatus) {
+                debugStatus.textContent = `状态: ${message}`;
+                debugStatus.style.color = type === 'error' ? '#ff4444' : type === 'success' ? '#00ff00' : '#ffffff';
+            }
+            console.log(`[系统状态] ${message}`);
+        }
+
+        // 工具函数：动态加载脚本（完全本地化）
+        function loadLocalScript(src, name) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = false; // 同步加载，避免依赖问题
+                
+                script.onload = () => {
+                    console.log(`✅ 加载成功: ${name}`);
+                    STATE.loadedFiles.push(name);
+                    updateStatusIndicator(getStatusType(name), 'loaded');
+                    resolve();
+                };
+                
+                script.onerror = (e) => {
+                    console.warn(`⚠️ 加载失败: ${name} (${src})`, e);
+                    updateStatusIndicator(getStatusType(name), 'error');
+                    reject(new Error(`无法加载 ${name}: ${src}`));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+
+        // 根据文件名获取状态类型
+        function getStatusType(name) {
+            if (name.includes('three')) return 'three';
+            if (name.includes('mediapipe') || name.includes('hands')) return 'media';
+            return 'system';
+        }
+
+        // 核心：加载本地 Three.js
+        async function loadThreeJS() {
+            showStatus('正在加载本地 Three.js (离线版)...');
+            updateStatusIndicator('three', 'loading');
+            
+            try {
+                await loadLocalScript(CONFIG.localPaths.three, 'Three.js');
+                
+                if (typeof THREE === 'undefined') {
+                    throw new Error('Three.js 加载后未找到 THREE 对象');
+                }
+                
+                STATE.threeLoaded = true;
+                return THREE;
+                
+            } catch (error) {
+                throw new Error(`Three.js 加载失败: ${error.message}`);
+            }
+        }
+
+        // 核心：加载本地 MediaPipe
+        async function loadMediaPipe() {
+            showStatus('正在加载本地 MediaPipe (离线版)...');
+            updateStatusIndicator('media', 'loading');
+            
+            try {
+                // 按顺序加载依赖
+                await loadLocalScript(CONFIG.localPaths.mediapipe.drawing, 'MediaPipe Drawing Utils');
+                await loadLocalScript(CONFIG.localPaths.mediapipe.control, 'MediaPipe Control Utils');
+                await loadLocalScript(CONFIG.localPaths.mediapipe.camera, 'MediaPipe Camera Utils');
+                await loadLocalScript(CONFIG.localPaths.mediapipe.hands, 'MediaPipe Hands');
+                
+                // 验证加载
+                if (typeof Hands === 'undefined') {
+                    throw new Error('MediaPipe Hands 未正确加载');
+                }
+                
+                if (typeof Camera === 'undefined') {
+                    throw new Error('MediaPipe Camera 未正确加载');
+                }
+                
+                STATE.mediapipeLoaded = true;
+                showStatus('本地 MediaPipe 加载完成', 'success');
+                
+            } catch (error) {
+                throw new Error(`MediaPipe 加载失败: ${error.message}`);
+            }
+        }
+
+        // 核心：请求摄像头权限
+        async function requestCamera() {
+            showStatus('正在请求摄像头权限...<br><small>请在弹出窗口中选择"允许"</small>');
+            updateStatusIndicator('camera', 'loading');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                
+                if (!stream || !stream.getVideoTracks().length) {
+                    throw new Error('摄像头访问被拒绝');
+                }
+                
+                // 立即停止，我们只需要权限
+                stream.getTracks().forEach(track => track.stop());
+                
+                STATE.cameraReady = true;
+                updateStatusIndicator('camera', 'loaded');
+                showStatus('摄像头权限已获取', 'success');
+                
+            } catch (error) {
+                updateStatusIndicator('camera', 'error');
+                throw new Error(`摄像头权限请求失败: ${error.message}`);
+            }
+        }
+
+        // 核心：启动主应用
+        async function startMainApplication() {
+            showStatus('正在启动主应用...');
+            
+            if (!STATE.threeLoaded || !STATE.mediapipeLoaded || !STATE.cameraReady) {
+                throw new Error('依赖未完全加载');
+            }
+
+            // 由于无法在函数内动态 import 本地模块，我们使用全局 THREE
+            // 检查 THREE 是否可用
+            if (typeof THREE === 'undefined') {
+                throw new Error('THREE 对象不可用');
+            }
+            
+            const THREE = window.THREE; // 使用全局对象
+
+            // ==========================================
+            // 1. THREE.JS 场景设置
+            // ==========================================
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.002);
+
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            // 创建发光粒子纹理（内联，避免外部资源）
+            function createLightTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 32;
+                canvas.height = 32;
+                const context = canvas.getContext('2d');
+                const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
+                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                context.fillStyle = gradient;
+                context.fillRect(0, 0, 32, 32);
+                const texture = new THREE.Texture(canvas);
+                texture.needsUpdate = true;
+                return texture;
+            }
+
+            const particleTexture = createLightTexture();
+
+            // 创建星球
+            const planetGeometry = new THREE.BufferGeometry();
+            const planetCount = 4000;
+            const planetPos = new Float32Array(planetCount * 3);
+            const planetSizes = new Float32Array(planetCount);
+
+            for (let i = 0; i < planetCount; i++) {
+                const radius = 8 + Math.random() * 2;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+                planetPos[i * 3] = x;
+                planetPos[i * 3 + 1] = y;
+                planetPos[i * 3 + 2] = z;
+                planetSizes[i] = Math.random() * 1.5 + 0.5;
+            }
+
+            planetGeometry.setAttribute('position', new THREE.BufferAttribute(planetPos, 3));
+            planetGeometry.setAttribute('size', new THREE.BufferAttribute(planetSizes, 1));
+
+            const planetMaterial = new THREE.PointsMaterial({
+                color: 0xffaa00,
+                size: 0.8,
+                map: particleTexture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const planet = new THREE.Points(planetGeometry, planetMaterial);
+            scene.add(planet);
+
+            // 创建星环
+            const ringParticlesCount = 3000;
+            const ringGeometry = new THREE.BufferGeometry();
+            const ringPos = new Float32Array(ringParticlesCount * 3);
+
+            for (let i = 0; i < ringParticlesCount; i++) {
+                const isRing1 = Math.random() > 0.5;
+                const baseR = isRing1 ? 14 : 22;
+                const ringWidth = 4;
+                const r = baseR + Math.random() * ringWidth;
+                const angle = Math.random() * Math.PI * 2;
+                const x = r * Math.cos(angle);
+                const z = r * Math.sin(angle);
+                const y = (Math.random() - 0.5) * 1;
+                ringPos[i * 3] = x;
+                ringPos[i * 3 + 1] = y;
+                ringPos[i * 3 + 2] = z;
+            }
+
+            ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
+            const ringMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.6,
+                map: particleTexture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const ringSystem = new THREE.Points(ringGeometry, ringMaterial);
+            ringSystem.rotation.z = Math.PI / 8;
+            ringSystem.rotation.x = Math.PI / 8;
+            scene.add(ringSystem);
+
+            // 摄像机控制变量
+            let targetOrbitAngle = 0;
+            let currentOrbitAngle = 0;
+            let targetDistance = 40;
+            let currentDistance = 40;
+            let isHandDetected = false;
+            let autoRotateSpeed = 0.001;
+
+            // MediaPipe 相关变量
+            const videoElement = document.getElementById('input-video');
+            let hands, cameraUtils;
+            let debugMode = false;
+            let debugVideoStream = null;
+
+            // 调试功能
+            function setupDebugControls() {
+                const debugToggle = document.getElementById('debug-toggle');
+                const debugCamera = document.getElementById('debug-camera');
+                const debugStatus = document.getElementById('debug-status');
+                const debugVideo = document.getElementById('debug-video');
+
+                debugToggle.style.display = 'block';
+                debugStatus.style.display = 'block';
+                
+                debugToggle.addEventListener('click', async () => {
+                    debugMode = !debugMode;
+                    
+                    if (debugMode) {
+                        debugCamera.style.display = 'block';
+                        debugToggle.textContent = '🔍 关闭调试';
+                        
+                        try {
+                            if (!debugVideoStream) {
+                                const stream = await navigator.mediaDevices.getUserMedia({ 
+                                    video: { width: 640, height: 480 } 
+                                });
+                                debugVideoStream = stream;
+                                debugVideo.srcObject = stream;
+                                updateDebugStatus('摄像头已连接', '#00ff00');
+                            } else {
+                                debugVideo.srcObject = debugVideoStream;
+                                updateDebugStatus('摄像头已连接', '#00ff00');
+                            }
+                        } catch (err) {
+                            updateDebugStatus('摄像头权限被拒绝', '#ff0000');
+                        }
+                    } else {
+                        debugCamera.style.display = 'none';
+                        debugToggle.textContent = '🔍 调试摄像头';
+                        updateDebugStatus('系统运行中', '#00ff00');
+                    }
+                });
+            }
+
+            function updateDebugStatus(message, color = '#ffffff') {
+                const debugStatus = document.getElementById('debug-status');
+                if (debugStatus) {
+                    debugStatus.textContent = `状态: ${message}`;
+                    debugStatus.style.color = color;
+                    // 限制显示长度
+                    if (debugStatus.textContent.length > 40) {
+                        debugStatus.textContent = debugStatus.textContent.substring(0, 37) + '...';
+                    }
+                }
+            }
+
+            function onResults(results) {
+                if (!results || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                    if (isHandDetected) {
+                        isHandDetected = false;
+                        updateDebugStatus('未检测到手势', '#ffff00');
+                    }
+                    return;
+                }
+
+                // 隐藏加载/成功提示
+                const loadingEl = document.getElementById('loading');
+                const successEl = document.getElementById('success-notice');
+                
+                loadingEl.style.opacity = '0';
+                setTimeout(() => loadingEl.style.display = 'none', 500);
+                
+                if (successEl.style.display !== 'none') {
+                    setTimeout(() => successEl.style.display = 'none', 1500);
+                }
+
+                isHandDetected = true;
+                const landmarks = results.multiHandLandmarks[0];
+                const wrist = landmarks[0];
+                const middleTip = landmarks[9];
+                
+                const dx = middleTip.x - wrist.x;
+                const dy = middleTip.y - wrist.y;
+                let rotationAngle = Math.atan2(dx, -dy);
+                targetOrbitAngle = rotationAngle * 3.0;
+
+                const sizeRef = Math.sqrt(
+                    Math.pow(landmarks[0].x - landmarks[9].x, 2) + 
+                    Math.pow(landmarks[0].y - landmarks[9].y, 2)
+                ); 
+
+                const fingertips = [8, 12, 16, 20];
+                let foldedFingers = 0;
+                fingertips.forEach(idx => {
+                    const d = Math.sqrt(Math.pow(landmarks[idx].x - landmarks[0].x, 2) + Math.pow(landmarks[idx].y - landmarks[0].y, 2));
+                    if (d < sizeRef * 1.6) foldedFingers++;
+                });
+
+                const isFist = foldedFingers >= 3;
+                const isOpen = foldedFingers <= 1;
+
+                if (isFist) {
+                    const factor = Math.max(0.01, sizeRef); 
+                    targetDistance = 20 + 5 / factor; 
+                } else if (isOpen) {
+                    const factor = Math.min(0.5, sizeRef);
+                    targetDistance = 100 - (factor * 200); 
+                }
+
+                targetDistance = Math.max(15, Math.min(150, targetDistance));
+                
+                const gestureName = isFist ? '握拳' : (isOpen ? '张开' : '其它');
+                updateDebugStatus(`手势: ${gestureName} | 距离: ${targetDistance.toFixed(1)}`, '#00ff00');
+            }
+
+            async function initializeMediaPipe() {
+                const mpStart = performance.now();
+                updateDebugStatus('正在初始化MediaPipe...', '#ffff00');
+
+                try {
+                    // 等待 MediaPipe 库加载
+                    let retryCount = 0;
+                    while (typeof Hands === 'undefined' && retryCount < 20) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        retryCount++;
+                    }
+
+                    if (typeof Hands === 'undefined') {
+                        throw new Error('MediaPipe Hands库未加载');
+                    }
+
+                    // 使用本地路径（虽然hands.js内部可能仍需模型文件）
+                    hands = new Hands({locateFile: (file) => {
+                        // 尝试使用本地模型文件，如果不存在则回退到CDN
+                        const modelMap = {
+                            'hands_landmark_full.tflite': './local-libs/hands_landmark_full.tflite',
+                            'hands_landmark_lite.tflite': './local-libs/hands_landmark_lite.tflite',
+                            'handedness.txt': './local-libs/handedness.txt'
+                        };
+                        // 优先尝试本地，失败则回退到CDN
+                        return modelMap[file] || `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                    }});
+
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    hands.onResults(onResults);
+
+                    // 使用本地 Camera 类
+                    cameraUtils = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (hands && hands.send && videoElement.readyState === 4) {
+                                await hands.send({image: videoElement});
+                            }
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                    
+                    await cameraUtils.start();
+
+                    console.log(`MediaPipe初始化耗时: ${(performance.now() - mpStart).toFixed(2)}ms`);
+                    updateDebugStatus('MediaPipe初始化完成', '#00ff00');
+                    
+                } catch (error) {
+                    console.error('MediaPipe初始化失败:', error);
+                    updateDebugStatus(`MediaPipe错误: ${error.message}`, '#ff0000');
+                    throw error;
+                }
+            }
+
+            // 渲染循环
+            let frameCount = 0;
+            let lastFPSTime = 0;
+            
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (isHandDetected) {
+                    currentOrbitAngle += (targetOrbitAngle - currentOrbitAngle) * 0.1;
+                    currentDistance += (targetDistance - currentDistance) * 0.08;
+                } else {
+                    currentOrbitAngle += autoRotateSpeed;
+                }
+
+                const y = currentDistance * 0.3; 
+                const horizontalDist = Math.sqrt(currentDistance * currentDistance - y * y);
+                
+                camera.position.x = horizontalDist * Math.sin(currentOrbitAngle);
+                camera.position.z = horizontalDist * Math.cos(currentOrbitAngle);
+                camera.position.y = y;
+                camera.lookAt(0, 0, 0);
+
+                planet.rotation.y += 0.002;
+                ringSystem.rotation.z -= 0.001;
+
+                renderer.render(scene, camera);
+
+                frameCount++;
+                const now = performance.now();
+                if (now - lastFPSTime >= 500) {
+                    const fps = Math.round((frameCount * 1000) / (now - lastFPSTime));
+                    document.getElementById('fps').textContent = fps;
+                    frameCount = 0;
+                    lastFPSTime = now;
+                    document.getElementById('perf-indicator').style.opacity = '1';
+                }
+            }
+
+            // 窗口调整
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // 启动应用
+            async function startApp() {
+                try {
+                    await initializeMediaPipe();
+                    setupDebugControls();
+                    
+                    // 显示成功提示
+                    const successEl = document.getElementById('success-notice');
+                    successEl.style.display = 'block';
+                    updateStatusIndicator('system', 'loaded');
+                    
+                    animate();
+                    STATE.systemReady = true;
+                    showStatus('系统运行正常 - 完全离线模式', 'success');
+                    
+                } catch (error) {
+                    showError('应用启动失败', error.message);
+                }
+            }
+
+            // 等待用户交互
+            document.addEventListener('click', startApp, { once: true });
+            
+            // 自动提示用户
+            setTimeout(() => {
+                if (!STATE.systemReady) {
+                    showStatus('请点击屏幕任意位置开始<br><small>需要摄像头权限 - 完全离线运行</small>');
+                }
+            }, 1500);
+        }
+
+        // 主初始化流程
+        async function main() {
+            console.log('🚀 开始初始化完全离线 WebAR 系统...');
+            console.log('📦 已下载资源:', STATE.loadedFiles);
+            
+            // 1. 检查浏览器支持
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError('浏览器不支持摄像头', '请使用现代浏览器如 Chrome、Edge、Firefox');
+                return;
+            }
+
+            if (!window.isSecureContext && !window.location.hostname.includes('localhost')) {
+                showError('需要安全连接', '请使用 HTTPS 或 localhost 访问');
+                return;
+            }
+
+            try {
+                // 2. 加载本地依赖
+                await loadThreeJS();
+                await loadMediaPipe();
+                
+                // 3. 请求权限
+                await requestCamera();
+                
+                // 4. 启动主应用
+                await startMainApplication();
+                
+            } catch (error) {
+                showError('初始化失败', error.message);
+            }
+        }
+
+        // 页面加载完成后开始
+        window.addEventListener('load', () => {
+            // 稍微延迟确保 DOM 就绪
+            setTimeout(main, 100);
+        });
+    </script>
+</body>
+</html>
