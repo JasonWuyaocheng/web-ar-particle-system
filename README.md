@@ -1,29 +1,13 @@
-# 🎉 GitHub Pages 部署完成！
+# WebAR 粒子互动系统 & 圣诞树交互系统 & 星球粒子系统
 
-**🎉 恭喜！你的 WebAR 应用已经成功部署到 GitHub Pages！**
+这是一个基于 Three.js 和 MediaPipe Hands 的 WebAR 互动应用集合，包含三个完整的3D交互体验：粒子系统、圣诞树系统和星球粒子系统。
+### 在线体验
+GitHub Pages 部署版本：
+- 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
+- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html
+- 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
 
-## 🚀 立即访问
-
-**你的应用地址：**
 ```
-https://JasonWuyaocheng.github.io/web-ar-particle-system/
-```
-
-**直接访问完全离线版本：**
-```
-https://JasonWuyaocheng.github.io/web-ar-particle-system/index.html
-```
-
-## ✅ 部署状态
-
-- ✅ 所有文件已上传到 GitHub
-- ✅ 完全离线版本已设置为 index.html
-- ✅ 本地依赖库已下载并配置
-- ✅ README 已更新，包含详细部署指南
-- ✅ 错误修复指南已添加
-
-## 🎯 当前推荐使用
-
 **如果你在 GitHub Pages 上遇到 `ERR_BLOCKED_BY_CLIENT` 或页面无法加载**，请使用以下**完全离线版本**：
 
 ## ⚡ 立即解决方案（推荐）
@@ -51,17 +35,14 @@ python -m http.server 8080
 - `DEPLOYMENT_CHECKLIST.md` - 完整部署清单
 - `README_GitHub_Pages.md` - GitHub Pages 专用指南
 
+## ✅ 部署状态
+
+- ✅ 所有文件已上传到 GitHub
+- ✅ 完全离线版本已设置为 index.html
+- ✅ 本地依赖库已下载并配置
+- ✅ README 已更新，包含详细部署指南
+- ✅ 错误修复指南已添加
 ---
-
-# WebAR 粒子互动系统 & 圣诞树交互系统 & 星球粒子系统
-
-这是一个基于 Three.js 和 MediaPipe Hands 的 WebAR 互动应用集合，包含三个完整的3D交互体验：粒子系统、圣诞树系统和星球粒子系统。
-### 在线体验
-GitHub Pages 部署版本：
-- 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
-- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html
-- 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
-
 
 ## 🌟 核心功能
 
@@ -436,3 +417,4 @@ MIT License - 可自由使用、修改和分发
 | 星球星环 | 3,000 | **0.6** | 双环结构(14-18,22-26) | 自转(-0.001)、白色 |
 
 如遇问题，请检查控制台错误信息或参考故障排除章节。
+
