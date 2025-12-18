@@ -1423,9 +1423,9 @@
 
                 hands.setOptions({
                     maxNumHands: 1,
-                    modelComplexity: 1,
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5,
+                    modelComplexity: 1, // 0=快速, 1=平衡, 2=精确
+                    minDetectionConfidence: 0.3, // 降低检测阈值，提高识别率
+                    minTrackingConfidence: 0.3, // 降低跟踪阈值，保持跟踪
                     selfieMode: true
                 });
 
@@ -1613,18 +1613,18 @@
                 z: (thumbBase.z + pinkyBase.z + indexBase.z + middleBase.z + ringBase.z) / 5
             };
 
-            // === 自适应阈值系统 ===
+            // === 自适应阈值系统（优化版）===
             const adaptiveThresholds = {
-                // 基于手部大小的动态阈值
-                FIST_DISTANCE: 0.5 + (palmRatio * 0.2),        // 握拳距离
-                OPEN_DISTANCE: 1.3 - (palmRatio * 0.1),        // 张开距离
-                BEND_THRESHOLD: 0.55,                          // 弯曲阈值
-                SCISSORS_GAP: 0.28 + (palmRatio * 0.1),        // 剪刀间隙
-                POINT_DISTANCE: 0.9 - (palmRatio * 0.1),       // 指食指距离
-                THUMB_DISTANCE: 1.0 + (palmRatio * 0.1),       // 大拇指距离
-                ANGLE_TOLERANCE: 0.6,                          // 角度容差
-                ALIGNMENT_THRESHOLD: 0.5,                      // 对齐度阈值
-                CONFIDENCE_THRESHOLD: 0.70                     // 基础置信度
+                // 基于手部大小的动态阈值 - 降低要求提高识别率
+                FIST_DISTANCE: 0.6 + (palmRatio * 0.3),        // 握拳距离 - 放宽
+                OPEN_DISTANCE: 1.1 - (palmRatio * 0.1),        // 张开距离 - 降低要求
+                BEND_THRESHOLD: 0.6,                           // 弯曲阈值 - 放宽
+                SCISSORS_GAP: 0.25 + (palmRatio * 0.15),       // 剪刀间隙 - 放宽
+                POINT_DISTANCE: 0.75 - (palmRatio * 0.1),      // 指食指距离 - 降低
+                THUMB_DISTANCE: 0.85 + (palmRatio * 0.15),     // 大拇指距离 - 降低
+                ANGLE_TOLERANCE: 0.8,                          // 角度容差 - 放宽
+                ALIGNMENT_THRESHOLD: 0.6,                      // 对齐度阈值 - 放宽
+                CONFIDENCE_THRESHOLD: 0.55                     // 基础置信度 - 降低
             };
 
             // === 多维度特征提取 ===
@@ -1668,7 +1668,7 @@
             const bentFingers = ['thumbBendScore', 'indexBendScore', 'middleBendScore', 'ringBendScore', 'pinkyBendScore'].filter(f => features[f] > 0.7).length;
             features.consistencyScore = Math.abs(straightFingers - bentFingers) / 5; // 越高表示越一致
 
-            // === 机器学习加权评分系统 ===
+            // === 机器学习加权评分系统（增强版）===
             const gestureScores = {
                 fist: 0,
                 open: 0,
@@ -1677,62 +1677,62 @@
                 thumbsUp: 0
             };
 
-            // 1. 握拳评分 - 高弯曲度 + 低间距 + 紧凑手掌
+            // 1. 握拳评分 - 放宽要求，提高识别率
             const fistScore = (
-                (features.thumbBendScore * 0.25) +
-                (features.indexBendScore * 0.20) +
-                (features.middleBendScore * 0.20) +
-                (features.ringBendScore * 0.15) +
-                (features.pinkyBendScore * 0.15) +
-                ((1 - features.allClose) * 0.15) +
-                (features.handCompactness * 0.10)
+                (features.thumbBendScore * 0.20) +
+                (features.indexBendScore * 0.18) +
+                (features.middleBendScore * 0.18) +
+                (features.ringBendScore * 0.14) +
+                (features.pinkyBendScore * 0.14) +
+                ((1 - features.allClose) * 0.10) +
+                (features.handCompactness * 0.06)
             );
             gestureScores.fist = Math.min(1, fistScore);
 
-            // 2. 张手评分 - 高伸直度 + 宽间距 + 开放手掌
+            // 2. 张手评分 - 降低要求，提高识别率
             const openScore = (
-                (features.thumbStraight * 0.20) +
-                (features.indexStraight * 0.20) +
-                (features.middleStraight * 0.20) +
-                (features.ringStraight * 0.15) +
-                (features.pinkyStraight * 0.15) +
-                (features.allClose * 0.10) +
-                (features.handOpenness * 0.15)
+                (features.thumbStraight * 0.18) +
+                (features.indexStraight * 0.18) +
+                (features.middleStraight * 0.18) +
+                (features.ringStraight * 0.14) +
+                (features.pinkyStraight * 0.14) +
+                (features.allClose * 0.08) +
+                (features.handOpenness * 0.10)
             );
             gestureScores.open = Math.min(1, openScore);
 
-            // 3. 剪刀手评分 - 选择性伸直 + 特定间距
+            // 3. 剪刀手评分 - 放宽要求
             const scissorsScore = (
-                (features.indexStraight * 0.30) +
-                (features.middleStraight * 0.25) +
-                (features.ringBendScore * 0.20) +
-                (features.pinkyBendScore * 0.15) +
-                (features.scissorsPattern * 0.25) +
-                (features.fingerStraightness * 0.10) +
-                (features.indexMiddleAligned * 0.15)
+                (features.indexStraight * 0.25) +
+                (features.middleStraight * 0.22) +
+                (features.ringBendScore * 0.15) +
+                (features.pinkyBendScore * 0.12) +
+                (features.scissorsPattern * 0.20) +
+                (features.fingerStraightness * 0.08) +
+                (features.indexMiddleAligned * 0.10)
             );
             gestureScores.scissors = Math.min(1, scissorsScore);
 
-            // 4. 指食指评分 - 仅食指伸直
+            // 4. 指食指评分 - 放宽要求
             const pointScore = (
-                (features.indexStraight * 0.45) +
-                (features.middleBendScore * 0.25) +
-                (features.ringBendScore * 0.15) +
-                (features.pinkyBendScore * 0.10) +
-                (features.indexMiddleSpread * 0.20) +
-                (features.fingerStraightness * 0.15)
+                (features.indexStraight * 0.35) +
+                (features.middleBendScore * 0.20) +
+                (features.ringBendScore * 0.12) +
+                (features.pinkyBendScore * 0.08) +
+                (features.indexMiddleSpread * 0.15) +
+                (features.fingerStraightness * 0.10)
             );
             gestureScores.point = Math.min(1, pointScore);
 
-            // 5. 大拇指评分 - 仅拇指伸直
+            // 5. 大拇指评分 - 放宽要求
             const thumbScore = (
-                (features.thumbStraight * 0.50) +
-                (features.indexBendScore * 0.20) +
-                (features.middleBendScore * 0.15) +
-                (features.ringBendScore * 0.10) +
+                (features.thumbStraight * 0.40) +
+                (features.indexBendScore * 0.15) +
+                (features.middleBendScore * 0.12) +
+                (features.ringBendScore * 0.08) +
                 (features.pinkyBendScore * 0.05) +
-                (features.depthIndicator * 0.20) +
-                (features.allClose * 0.15)
+                (features.depthIndicator * 0.15) +
+                (features.allClose * 0.10)
             );
             gestureScores.thumbsUp = Math.min(1, thumbScore);
 
@@ -1756,7 +1756,7 @@
                 : maxScore;
 
             // === 高级防抖与历史分析 ===
-            if (detectedGesture && maxScore > dynamicThresholds.CONFIDENCE_THRESHOLD) {
+            if (detectedGesture && maxScore > 0.40) { // 降低阈值，允许更多识别
                 // 记录到历史
                 gestureHistory.timestamps.push(now);
                 gestureHistory.gestures.push(detectedGesture);
@@ -1792,8 +1792,8 @@
                         if (stabilityRatio >= 0.7 && weightedConfidence >= dynamicThresholds.CONFIDENCE_THRESHOLD) {
                             const dominantGesture = gesturePattern[Math.floor(gesturePattern.length / 2)];
                             
-                            // 时间防抖 + 智能切换
-                            if (now - lastGestureChange > 250 && dominantGesture !== lastConfirmedGesture) {
+                            // 时间防抖 + 智能切换 - 放宽防抖时间
+                            if (now - lastGestureChange > 150 && dominantGesture !== lastConfirmedGesture) {
                                 // 额外验证：检查是否存在冲突
                                 const conflict = recentBuffer.some(item => 
                                     item.gesture !== dominantGesture && item.confidence > weightedConfidence * 0.8
@@ -1840,9 +1840,9 @@
             updateGestureDisplay(lastConfirmedGesture);
             
             // 在调试模式下显示详细信息（如果有）
-            if (lastConfirmedGesture && confidence > 0.75 && document.getElementById('debug-info').classList.contains('debug-hidden')) {
+            if (lastConfirmedGesture && confidence > 0.50 && document.getElementById('debug-info').classList.contains('debug-hidden')) {
                 // 每隔一定时间显示一次详细信息，避免过多打扰
-                if (now % 5000 < 100) { // 每5秒显示一次
+                if (now % 3000 < 100) { // 每3秒显示一次，更频繁
                     console.log(`🎯 当前手势: ${lastConfirmedGesture} | 置信度: ${(confidence * 100).toFixed(1)}% | 稳定性: ${(stabilityScore * 100).toFixed(1)}%`);
                 }
             }
