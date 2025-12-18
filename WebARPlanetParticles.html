@@ -112,7 +112,7 @@
     <link rel="preload" href="https://unpkg.com/three@0.160.0/build/three.module.js" as="script">
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" as="script">
 
-    <!-- 1. 引入 MediaPipe (CDN Script 方式) -->
+    <!-- 1. 引入 MediaPipe (CDN Script 方式) - 使用 crossorigin="anonymous" -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -123,6 +123,86 @@
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <!-- 3. 安全上下文检测和错误处理脚本 -->
+    <script>
+        // 检查安全上下文和HTTPS
+        function checkSecurityContext() {
+            const isSecure = window.isSecureContext;
+            const protocol = window.location.protocol;
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            console.log(`Security Context Check:`, {
+                isSecure: isSecure,
+                protocol: protocol,
+                hostname: window.location.hostname,
+                isLocalhost: isLocalhost,
+                hasCameraAPI: !!navigator.mediaDevices
+            });
+
+            if (!isSecure && !isLocalhost) {
+                console.warn('⚠️ 非安全上下文 - 摄像头可能无法访问');
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.innerHTML = `安全上下文问题<br><span style="font-size:0.8rem; color:#fff;">请使用HTTPS或localhost访问</span>`;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        // 增强的摄像头权限请求
+        async function requestCameraPermission() {
+            try {
+                console.log('正在请求摄像头权限...');
+                
+                // 首先检查权限状态
+                if (navigator.permissions && navigator.permissions.query) {
+                    const permission = await navigator.permissions.query({ name: 'camera' });
+                    console.log('摄像头权限状态:', permission.state);
+                    
+                    if (permission.state === 'denied') {
+                        throw new Error('摄像头权限被拒绝，请在浏览器设置中允许摄像头访问');
+                    }
+                }
+
+                // 尝试获取摄像头流
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 },
+                        facingMode: 'user'  // 优先使用前置摄像头
+                    } 
+                });
+                
+                console.log('✅ 摄像头权限获取成功');
+                
+                // 立即停止流，因为我们只需要MediaPipe内部的摄像头访问
+                stream.getTracks().forEach(track => track.stop());
+                
+                return true;
+                
+            } catch (error) {
+                console.error('❌ 摄像头权限获取失败:', error);
+                
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.innerHTML = `摄像头访问失败<br><span style="font-size:0.8rem; color:#fff;">错误: ${error.message}</span>`;
+                    loadingEl.style.color = '#ff4444';
+                }
+                
+                // 更新调试状态
+                const debugStatus = document.getElementById('debug-status');
+                if (debugStatus) {
+                    debugStatus.textContent = `摄像头错误: ${error.message}`;
+                    debugStatus.style.color = '#ff0000';
+                    debugStatus.style.display = 'block';
+                }
+                
+                throw error;
             }
         }
     </script>
@@ -560,16 +640,25 @@
             loadingEl.innerHTML = '正在初始化引擎...<br><span style="font-size:0.8rem; color:#fff;">请允许摄像头权限</span>';
 
             try {
-                // 初始化调试控件
+                // 1. 检查安全上下文
+                const isSecure = checkSecurityContext();
+                if (!isSecure) {
+                    console.warn('安全上下文检查失败，但尝试继续...');
+                }
+
+                // 2. 预请求摄像头权限
+                await requestCameraPermission();
+
+                // 3. 初始化调试控件
                 setupDebugControls();
                 
-                // 初始化MediaPipe
+                // 4. 初始化MediaPipe
                 await initializeMediaPipe();
 
-                // 启动渲染循环
+                // 5. 启动渲染循环
                 animate();
 
-                // 更新UI
+                // 6. 更新UI
                 loadingEl.style.opacity = '0';
                 setTimeout(() => {
                     loadingEl.style.display = 'none';
@@ -582,6 +671,18 @@
                 loadingEl.innerHTML = `启动失败<br><span style="font-size:0.8rem; color:#fff;">错误: ${error.message}</span>`;
                 loadingEl.style.color = '#ff4444';
                 updateDebugStatus(`启动失败: ${error.message}`, '#ff0000');
+                
+                // 如果是权限问题，提供更详细的帮助信息
+                if (error.message.includes('permission') || error.message.includes('权限')) {
+                    setTimeout(() => {
+                        loadingEl.innerHTML = `权限问题解决方案<br><span style="font-size:0.7rem; color:#fff;">
+                            1. 点击地址栏摄像头图标<br>
+                            2. 选择"始终允许"<br>
+                            3. 刷新页面<br>
+                            或点击下方调试按钮手动测试
+                        </span>`;
+                    }, 2000);
+                }
             }
         }
 
