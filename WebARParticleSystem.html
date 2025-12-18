@@ -1391,13 +1391,27 @@
                     return;
                 }
 
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        facingMode: 'user' 
-                    }
-                });
+                // 增强的摄像头权限请求，支持降级
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user' 
+                        }
+                    });
+                } catch (permissionError) {
+                    console.warn('高清摄像头请求失败，尝试标准分辨率...', permissionError);
+                    // 降级到标准分辨率
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            facingMode: 'user' 
+                        }
+                    });
+                }
 
                 cameraVideo = document.createElement('video');
                 cameraVideo.style.display = 'none';
