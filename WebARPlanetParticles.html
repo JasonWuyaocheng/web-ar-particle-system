@@ -108,14 +108,12 @@
         }
     </style>
 
-    <!-- 1. 引入 MediaPipe (CDN Script 方式) - 使用 crossorigin="anonymous" -->
-    <!-- 使用多个CDN源，提高加载成功率 -->
+    <!-- 引入 MediaPipe 和 Three.js - 保持原有CDN链接不变 -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
-    <!-- 2. 引入 Three.js (ES Module 方式，Modern) -->
     <script type="importmap">
         {
             "imports": {
@@ -124,103 +122,48 @@
         }
     </script>
 
-    <!-- 3. 安全上下文检测和错误处理脚本 -->
     <script>
-        // 检查安全上下文和HTTPS - 增强版，适配GitHub Pages
+        // 简化版安全检查 - 仅做必要检查
         function checkSecurityContext() {
             const isSecure = window.isSecureContext;
             const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-            const isGitHubPages = hostname.endsWith('github.io') || hostname.endsWith('github.com');
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             
-            console.log(`Security Context Check:`, {
-                isSecure: isSecure,
+            console.log(`Security Check:`, {
+                secure: isSecure,
                 protocol: protocol,
-                hostname: hostname,
-                isLocalhost: isLocalhost,
-                isGitHubPages: isGitHubPages,
-                hasCameraAPI: !!navigator.mediaDevices,
-                hasMediaPipe: typeof Hands !== 'undefined'
+                localhost: isLocalhost,
+                hasCamera: !!navigator.mediaDevices
             });
 
-            // GitHub Pages支持摄像头，只要在HTTPS下
-            if (isGitHubPages && protocol === 'https:') {
-                console.log('✅ GitHub Pages HTTPS环境 - 支持摄像头');
-                return true;
-            }
-
-            // 本地环境支持
-            if (isLocalhost) {
-                console.log('✅ 本地开发环境 - 支持摄像头');
-                return true;
-            }
-
-            // 其他安全上下文
-            if (isSecure) {
-                console.log('✅ 安全上下文 - 支持摄像头');
-                return true;
-            }
-
-            // 只有非安全上下文才警告
-            console.warn('⚠️ 非安全上下文 - 摄像头可能无法访问');
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) {
-                loadingEl.innerHTML = `安全上下文问题<br><span style="font-size:0.8rem; color:#fff;">当前环境: ${protocol}//${hostname}<br>建议使用HTTPS或localhost</span>`;
-            }
-            
-            // 即使在非安全上下文，也尝试继续（某些浏览器可能允许）
-            return true; // 改为true，让后续流程继续尝试
-        }
-
-        // 增强的摄像头权限请求
-        async function requestCameraPermission() {
-            try {
-                console.log('正在请求摄像头权限...');
-                
-                // 首先检查权限状态
-                if (navigator.permissions && navigator.permissions.query) {
-                    const permission = await navigator.permissions.query({ name: 'camera' });
-                    console.log('摄像头权限状态:', permission.state);
-                    
-                    if (permission.state === 'denied') {
-                        throw new Error('摄像头权限被拒绝，请在浏览器设置中允许摄像头访问');
-                    }
-                }
-
-                // 尝试获取摄像头流
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 640 }, 
-                        height: { ideal: 480 },
-                        facingMode: 'user'  // 优先使用前置摄像头
-                    } 
-                });
-                
-                console.log('✅ 摄像头权限获取成功');
-                
-                // 立即停止流，因为我们只需要MediaPipe内部的摄像头访问
-                stream.getTracks().forEach(track => track.stop());
-                
-                return true;
-                
-            } catch (error) {
-                console.error('❌ 摄像头权限获取失败:', error);
-                
+            if (!isSecure && !isLocalhost) {
+                console.warn('⚠️ 非安全环境 - 可能无法使用摄像头');
                 const loadingEl = document.getElementById('loading');
                 if (loadingEl) {
-                    loadingEl.innerHTML = `摄像头访问失败<br><span style="font-size:0.8rem; color:#fff;">错误: ${error.message}</span>`;
+                    loadingEl.innerHTML = `请使用HTTPS或localhost访问<br><span style="font-size:0.8rem;">当前: ${protocol}</span>`;
+                }
+            }
+            
+            return true; // 总是尝试继续
+        }
+
+        // 简化版摄像头权限请求
+        async function requestCameraPermission() {
+            try {
+                console.log('请求摄像头权限...');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: 'user' } 
+                });
+                console.log('✅ 摄像头权限获取成功');
+                stream.getTracks().forEach(track => track.stop());
+                return true;
+            } catch (error) {
+                console.error('❌ 摄像头权限失败:', error);
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.innerHTML = `摄像头访问失败<br><span style="font-size:0.8rem;">错误: ${error.message}</span>`;
                     loadingEl.style.color = '#ff4444';
                 }
-                
-                // 更新调试状态
-                const debugStatus = document.getElementById('debug-status');
-                if (debugStatus) {
-                    debugStatus.textContent = `摄像头错误: ${error.message}`;
-                    debugStatus.style.color = '#ff0000';
-                    debugStatus.style.display = 'block';
-                }
-                
                 throw error;
             }
         }
@@ -447,14 +390,11 @@
         }
 
         function onResults(results) {
-            // 增强的错误处理和稳定性检查
+            // 原始逻辑：快速失败检查，确保稳定
             if (!results || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
                 if (isHandDetected) {
                     isHandDetected = false;
                     updateDebugStatus('未检测到手势', '#ffff00');
-                    // 无手势时，缓慢恢复默认位置
-                    targetOrbitAngle = currentOrbitAngle; // 保持当前位置
-                    targetDistance = Math.max(30, Math.min(50, currentDistance)); // 缓慢恢复到舒适距离
                 }
                 return;
             }
@@ -468,103 +408,72 @@
             isHandDetected = true;
             const landmarks = results.multiHandLandmarks[0];
 
-            // --- A. 检测旋转 (优化版) --- 
-            try {
-                // 使用手腕(0)和中指根部(9)的向量来计算手的旋转角度
-                const wrist = landmarks[0];
-                const middleTip = landmarks[9];
-                
-                // 计算 x 和 y 的差值 (MediaPipe 坐标系: x left->right, y top->bottom)
-                const dx = middleTip.x - wrist.x;
-                const dy = middleTip.y - wrist.y;
-                
-                // 异常值过滤
-                if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-                    console.warn('异常手势数据，跳过此帧');
-                    return;
-                }
-                
-                // 计算角度 (-PI to PI)，-dy 因为屏幕坐标y向下
-                let rotationAngle = Math.atan2(dx, -dy);
-                
-                // 平滑更新目标角度，3.0是倍率
-                targetOrbitAngle = rotationAngle * 3.0;
-                
-            } catch (e) {
-                console.warn('旋转检测错误:', e);
-            }
-
-            // --- B. 检测缩放 (优化版) --- 
+            // --- A. 检测旋转 (Based on Hand Tilt) ---
+            // 使用手腕(0)和中指根部(9)的向量来计算手的旋转角度
+            const wrist = landmarks[0];
+            const middleTip = landmarks[9];
             
-            try {
-                // 1. 计算"手的大小" - 使用多点平均提高稳定性
-                const sizeRef = Math.sqrt(
-                    Math.pow(landmarks[0].x - landmarks[9].x, 2) + 
-                    Math.pow(landmarks[0].y - landmarks[9].y, 2)
-                ); 
+            // 计算 x 和 y 的差值 (MediaPipe 坐标系: x left->right, y top->bottom)
+            const dx = middleTip.x - wrist.x;
+            const dy = middleTip.y - wrist.y;
+            
+            // 计算角度 (-PI to PI)
+            // 这里加个系数让旋转更灵敏
+            let rotationAngle = Math.atan2(dx, -dy); // -dy 因为屏幕坐标y向下
+            
+            // 平滑更新目标角度
+            // 3.0 是倍率，让手转一点，星球转多点
+            targetOrbitAngle = rotationAngle * 3.0;
 
-                // 异常值过滤 - 手势大小应该在一个合理范围内
-                if (sizeRef < 0.01 || sizeRef > 1.0) {
-                    console.warn('手势大小异常，跳过缩放检测');
-                    return;
-                }
 
-                // 2. 检测握拳还是张开 - 使用更稳健的算法
-                const fingertips = [8, 12, 16, 20];
-                let foldedFingers = 0;
+            // --- B. 检测缩放 (Fist vs Open & Distance) ---
+            
+            // 1. 计算"手的大小" (手腕到中指指尖的距离，近似代表手离摄像头的远近)
+            // Z坐标在2D模式下不准，用屏幕投影的欧几里得距离更稳
+            const sizeRef = Math.sqrt(
+                Math.pow(landmarks[0].x - landmarks[9].x, 2) + 
+                Math.pow(landmarks[0].y - landmarks[9].y, 2)
+            ); 
+
+            // 2. 检测握拳还是张开
+            // 简单算法：指尖(8,12,16,20)到手腕(0)的距离如果都很短，就是握拳
+            const fingertips = [8, 12, 16, 20];
+            let foldedFingers = 0;
+            fingertips.forEach(idx => {
+                const d = Math.sqrt(Math.pow(landmarks[idx].x - landmarks[0].x, 2) + Math.pow(landmarks[idx].y - landmarks[0].y, 2));
+                // 阈值基于当前手掌大小 sizeRef
+                if (d < sizeRef * 1.6) foldedFingers++; // 如果指尖距离手腕很近
+            });
+
+            const isFist = foldedFingers >= 3; // 3根以上手指弯曲算握拳
+            const isOpen = foldedFingers <= 1; // 1根以下手指弯曲算张开
+
+            // 3. 速度与距离逻辑
+            // sizeRef 越大，手越近；sizeRef 越小，手越远。
+            // 正常范围大约在 0.05 (远) 到 0.4 (近) 之间
+            
+            if (isFist) {
+                // 握拳 + 远离(sizeRef变小) -> 相机变远
+                // 逻辑：速度先慢后快。当手很远(sizeRef很小)时，相机距离(targetDistance)应该非常大
+                // 使用反比函数模拟 "拉远"
+                const factor = Math.max(0.01, sizeRef); 
+                // 例子公式: base + constant / size
+                targetDistance = 20 + 5 / factor; 
                 
-                fingertips.forEach(idx => {
-                    const d = Math.sqrt(
-                        Math.pow(landmarks[idx].x - landmarks[0].x, 2) + 
-                        Math.pow(landmarks[idx].y - landmarks[0].y, 2)
-                    );
-                    // 动态阈值，基于当前手掌大小
-                    if (d < sizeRef * 1.6) foldedFingers++;
-                });
-
-                // 3. 增强的手势识别逻辑
-                const isFist = foldedFingers >= 3; // 握拳
-                const isOpen = foldedFingers <= 1; // 张开
-                const isPointing = foldedFingers === 2; // 指向
-
-                // 4. 改进的距离计算逻辑
-                if (isFist) {
-                    // 握拳 + 远离 -> 相机变远
-                    // 使用平滑曲线，避免突变
-                    const factor = Math.max(0.02, Math.min(0.3, sizeRef));
-                    targetDistance = 25 + 3 / factor;
-                    
-                } else if (isOpen) {
-                    // 张开 + 靠近 -> 相机靠近
-                    // 使用衰减函数，平滑过渡
-                    const factor = Math.min(0.4, sizeRef);
-                    targetDistance = 120 - (factor * 220);
-                    
-                } else if (isPointing) {
-                    // 指向 -> 中等距离，保持稳定
-                    targetDistance = 40;
-                }
-
-                // 5. 动态范围限制，根据当前状态调整
-                const dynamicMin = Math.max(10, 20 - (sizeRef * 10)); // 手越近，最小距离越小
-                const dynamicMax = Math.min(150, 80 + (sizeRef * 200)); // 手越远，最大距离越大
-                
-                targetDistance = Math.max(dynamicMin, Math.min(dynamicMax, targetDistance));
-
-                // 调试信息 - 只在有显著变化时更新
-                if (Math.abs(targetDistance - currentDistance) > 2 || isFist || isOpen) {
-                    let gestureText = '其它';
-                    if (isFist) gestureText = '握拳';
-                    else if (isOpen) gestureText = '张开';
-                    else if (isPointing) gestureText = '指向';
-                    
-                    updateDebugStatus(`手势: ${gestureText} | 距离: ${targetDistance.toFixed(1)} | 掌宽: ${sizeRef.toFixed(3)}`, '#00ff00');
-                }
-                
-            } catch (e) {
-                console.warn('缩放检测错误:', e);
-                updateDebugStatus('缩放检测异常', '#ffff00');
+            } else if (isOpen) {
+                // 张开 + 靠近(sizeRef变大) -> 相机靠近
+                // 逻辑：速度先快后慢。当手很近(sizeRef很大)时，相机距离接近最小值
+                // 使用衰减函数
+                const factor = Math.min(0.5, sizeRef);
+                // 线性映射反转，但加一点曲线
+                targetDistance = 100 - (factor * 200); 
             }
+
+            // 限制范围
+            targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance));
+            
+            // 调试信息
+            updateDebugStatus(`手势识别: ${isFist ? '握拳' : isOpen ? '张开' : '其它'} | 距离: ${targetDistance.toFixed(1)}`, '#00ff00');
         }
 
         async function initializeMediaPipe() {
@@ -574,165 +483,55 @@
             updateDebugStatus('正在初始化MediaPipe...', '#ffff00');
 
             try {
-                // 1. 优化的库加载等待机制
+                // 等待MediaPipe库加载完成
                 let retryCount = 0;
-                const maxRetries = 15;  // 增加重试次数
-                const retryDelay = 200; // 减少等待时间
-                
-                // 显示加载进度
-                const loadingEl = document.getElementById('loading');
+                const maxRetries = 10;
+                const retryDelay = 300;
                 
                 while (typeof Hands === 'undefined' && retryCount < maxRetries) {
-                    if (loadingEl && retryCount % 3 === 0) {
-                        const dots = '.'.repeat((retryCount % 3) + 1);
-                        loadingEl.innerHTML = `正在加载MediaPipe库${dots}<br><span style="font-size:0.8rem; color:#fff;">请稍候...</span>`;
-                    }
-                    
+                    console.log(`等待MediaPipe库加载... (${retryCount + 1}/${maxRetries})`);
                     await new Promise(resolve => setTimeout(resolve, retryDelay));
                     retryCount++;
                 }
 
                 if (typeof Hands === 'undefined') {
-                    throw new Error('MediaPipe库加载超时。请检查：<br>1. 网络连接是否正常<br>2. CDN服务是否可用<br>3. 是否被广告拦截器阻止');
+                    throw new Error('MediaPipe Hands库未加载，请检查网络连接或CDN服务');
                 }
 
-                // 2. 使用优化的Hands初始化参数
-                hands = new Hands({
-                    locateFile: (file) => {
-                        // 使用更稳定的CDN源，添加版本号确保一致性
-                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
-                    }
-                });
+                // 异步初始化Hands
+                hands = new Hands({locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }});
 
-                // 3. 优化的模型配置 - 平衡性能和准确性
                 hands.setOptions({
                     maxNumHands: 1,
-                    modelComplexity: 0,  // 0=最快速度，适合实时应用
-                    minDetectionConfidence: 0.4,  // 降低阈值提高检测率
-                    minTrackingConfidence: 0.4,   // 降低阈值提高跟踪稳定性
-                    selfieMode: true  // 镜像模式，符合直觉
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
                 });
 
                 hands.onResults(onResults);
 
-                // 4. 增强的摄像头初始化 - 添加重试和恢复机制
-                let cameraStartAttempts = 0;
-                const maxCameraAttempts = 3;
-                
-                while (cameraStartAttempts < maxCameraAttempts) {
-                    try {
-                        // 创建新的Camera实例
-                        cameraUtils = new Camera(videoElement, {
-                            onFrame: async () => {
-                                if (hands && hands.send && videoElement.readyState >= 2) {
-                                    try {
-                                        await hands.send({image: videoElement});
-                                    } catch (sendError) {
-                                        // 只在严重错误时输出，避免频繁日志
-                                        if (sendError.message.includes('WebGL') || sendError.message.includes('memory')) {
-                                            console.warn('Hands send warning:', sendError.message);
-                                        }
-                                    }
-                                }
-                            },
-                            width: 640,
-                            height: 480,
-                            facingMode: 'user'
-                        });
-                        
-                        // 使用带超时的启动
-                        const startPromise = cameraUtils.start();
-                        const timeoutPromise = new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('摄像头启动超时')), 8000)
-                        );
-                        
-                        await Promise.race([startPromise, timeoutPromise]);
-                        
-                        // 验证启动成功
-                        await new Promise((resolve) => {
-                            let verifyCount = 0;
-                            const verifyInterval = setInterval(() => {
-                                if (videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
-                                    clearInterval(verifyInterval);
-                                    resolve();
-                                } else if (verifyCount++ > 50) {
-                                    clearInterval(verifyInterval);
-                                    resolve(); // 容错处理
-                                }
-                            }, 100);
-                        });
-                        
-                        // 启动成功
-                        break;
-                        
-                    } catch (cameraError) {
-                        cameraStartAttempts++;
-                        console.warn(`摄像头启动尝试 ${cameraStartAttempts} 失败:`, cameraError.message);
-                        
-                        if (cameraStartAttempts >= maxCameraAttempts) {
-                            throw cameraError;
+                // 初始化Camera
+                cameraUtils = new Camera(videoElement, {
+                    onFrame: async () => {
+                        if (hands && hands.send && videoElement.readyState === 4) {
+                            await hands.send({image: videoElement});
                         }
-                        
-                        // 等待后重试
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                }
+                    },
+                    width: 640,
+                    height: 480
+                });
+                
+                await cameraUtils.start();
 
                 mediaPipeInitialized = true;
-                const initTime = (performance.now() - mpStart).toFixed(2);
-                console.log(`✅ MediaPipe初始化成功，耗时: ${initTime}ms`);
-                updateDebugStatus(`初始化完成 (${initTime}ms)`, '#00ff00');
+                console.log(`MediaPipe初始化耗时: ${(performance.now() - mpStart).toFixed(2)}ms`);
+                updateDebugStatus('MediaPipe初始化完成', '#00ff00');
                 
             } catch (error) {
-                console.error('❌ MediaPipe初始化失败:', error);
-                
-                // 智能错误处理和用户指导
-                let errorMessage = error.message;
-                let solutionTips = '';
-                
-                if (error.message.includes('permission') || error.message.includes('权限')) {
-                    errorMessage = '摄像头权限被拒绝';
-                    solutionTips = `
-                        <br><br><strong>权限问题解决方案：</strong><br>
-                        1. 点击地址栏的摄像头图标<br>
-                        2. 选择"始终允许"或"允许"<br>
-                        3. 刷新页面重试<br>
-                        4. 或检查浏览器隐私设置
-                    `;
-                } else if (error.message.includes('timeout') || error.message.includes('超时')) {
-                    errorMessage = '网络加载超时';
-                    solutionTips = `
-                        <br><br><strong>网络问题解决方案：</strong><br>
-                        1. 检查网络连接<br>
-                        2. 刷新页面重试<br>
-                        3. 关闭VPN或代理<br>
-                        4. 稍后重试服务器负载可能较高
-                    `;
-                } else if (error.message.includes('CDN') || error.message.includes('网络')) {
-                    errorMessage = '资源加载失败';
-                    solutionTips = `
-                        <br><br><strong>资源加载解决方案：</strong><br>
-                        1. 检查网络连接<br>
-                        2. 暂时关闭广告拦截器<br>
-                        3. 刷新页面<br>
-                        4. 稍后重试
-                    `;
-                } else {
-                    solutionTips = `
-                        <br><br><strong>通用解决方案：</strong><br>
-                        1. 刷新页面重试<br>
-                        2. 检查网络连接<br>
-                        3. 点击"调试摄像头"测试功能<br>
-                        4. 尝试其他浏览器
-                    `;
-                }
-                
-                updateDebugStatus(`初始化失败: ${errorMessage}`, '#ff0000');
-                if (loadingEl) {
-                    loadingEl.innerHTML = `<span style="color:#ff6b6b;">初始化失败</span><br><span style="font-size:0.7rem; color:#fff;">${errorMessage}${solutionTips}</span>`;
-                    loadingEl.style.color = '#ff6b6b';
-                }
-                
+                console.error('MediaPipe初始化失败:', error);
+                updateDebugStatus(`MediaPipe错误: ${error.message}`, '#ff0000');
                 throw error;
             }
         }
