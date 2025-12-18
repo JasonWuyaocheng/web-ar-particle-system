@@ -112,7 +112,7 @@ http-server -p 8000
 #### 方法三：VS Code Live Server
 安装 "Live Server" 扩展，右键HTML文件选择 "Open with Live Server"
 
-### 访问地址
+## 访问地址
 启动后访问：
 - 粒子系统：http://localhost:8000/WebARParticleSystem.html
 - 星球粒子系统：http://localhost:8000/WebARPlanetParticles.html
@@ -333,3 +333,4 @@ MIT License - 可自由使用、修改和分发
 | 星球星环 | 0.064 | **0.032** | **50%** | 8,000 | 圆形小球 |
 
 如遇问题，请检查控制台错误信息或参考故障排除章节。
+
