@@ -4,9 +4,8 @@
 ### 在线体验
 GitHub Pages 部署版本：
 - 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
-- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html
+- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html  或 https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles_GitHub.html
 - 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
-
 ```
 **如果你在 GitHub Pages 上遇到 `ERR_BLOCKED_BY_CLIENT` 或页面无法加载**，请使用以下**完全离线版本**：
 
@@ -173,7 +172,7 @@ http-server -p 8000
 ### 在线体验
 GitHub Pages 部署版本：
 - 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
-- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html
+- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html  或 https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles_GitHub.html
 - 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
 
 ## 📱 使用说明
@@ -418,5 +417,6 @@ MIT License - 可自由使用、修改和分发
 | 星球星环 | 3,000 | **0.6** | 双环结构(14-18,22-26) | 自转(-0.001)、白色 |
 
 如遇问题，请检查控制台错误信息或参考故障排除章节。
+
 
 
