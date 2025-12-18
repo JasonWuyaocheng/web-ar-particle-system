@@ -4,7 +4,7 @@
 ### 在线体验
 GitHub Pages 部署版本：
 - 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
-- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html  或 https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles_GitHub.html
+- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html 
 - 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
 ```
 **如果你在 GitHub Pages 上遇到 `ERR_BLOCKED_BY_CLIENT` 或页面无法加载**，请使用以下**完全离线版本**：
@@ -172,7 +172,7 @@ http-server -p 8000
 ### 在线体验
 GitHub Pages 部署版本：
 - 粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARParticleSystem.html
-- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html  或 https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles_GitHub.html
+- 星球粒子系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARPlanetParticles.html  
 - 圣诞树系统：https://JasonWuyaocheng.github.io/web-ar-particle-system/WebARChristmasTree.html
 
 ## 📱 使用说明
