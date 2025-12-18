@@ -317,6 +317,21 @@ MIT License - 可自由使用、修改和分发
 - **Three.js** - 强大的3D图形库
 - **MediaPipe** - 优秀的手势识别方案
 - **unpkg/jsdelivr** - 稳定的CDN服务
+- **[christmas-tree](https://github.com/mtzfbdsg-sys/christmas-tree)** - 参考的开源项目，提供了圣诞树交互系统的灵感和基础实现思路
+
+### 📚 参考来源
+
+本项目中的圣诞树互动系统（WebARChristmasTree.html）参考了开源项目 **[mtzfbdsg-sys/christmas-tree](https://github.com/mtzfbdsg-sys/christmas-tree)** 的实现思路，并在此基础上进行了以下改进和扩展：
+
+- 基于Three.js的3D场景构建
+- 手势识别交互逻辑
+- 状态管理系统设计
+- 照片上传与管理功能
+- UI界面优化与玻璃拟态设计
+- 键盘快捷键系统
+- 性能优化与错误降级处理
+
+原始项目提供了核心的3D圣诞树构建和基础交互框架，本项目在其基础上添加了完整的WebAR手势控制、增强的UI系统、照片管理、性能优化等特性，并扩展为包含粒子系统和星球粒子系统的完整WebAR互动应用集合。+++++++ REPLACE
 
 ---
 
@@ -339,6 +354,3 @@ MIT License - 可自由使用、修改和分发
 | 星球星环 | 0.064 | **0.032** | **50%** | 8,000 | 圆形小球 |
 
 如遇问题，请检查控制台错误信息或参考故障排除章节。
-
-
-
