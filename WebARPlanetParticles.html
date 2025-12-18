@@ -36,8 +36,81 @@
             color: #ffaa00; font-size: 1.5rem;
             transform: translateY(-50%);
             transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        
+        /* 性能指示器 */
+        #perf-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            text-align: right;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 调试摄像头显示 */
+        #debug-camera {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 160px;
+            height: 120px;
+            border: 2px solid #ffaa00;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            background: #000;
+            z-index: 15;
+        }
+
+        #debug-camera video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* 镜像翻转 */
+        }
+
+        /* 调试按钮 */
+        #debug-toggle {
+            position: absolute;
+            bottom: 150px;
+            left: 20px;
+            background: rgba(255, 170, 0, 0.3);
+            border: 1px solid #ffaa00;
+            color: #ffaa00;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            z-index: 16;
+            transition: all 0.3s;
+        }
+
+        #debug-toggle:hover {
+            background: rgba(255, 170, 0, 0.5);
+        }
+
+        /* 调试状态指示器 */
+        #debug-status {
+            position: absolute;
+            bottom: 190px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            display: none;
+            z-index: 16;
         }
     </style>
+
+    <!-- 预加载关键库，提升加载速度 -->
+    <link rel="preload" href="https://unpkg.com/three@0.160.0/build/three.module.js" as="script">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" as="script">
 
     <!-- 1. 引入 MediaPipe (CDN Script 方式) -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -64,6 +137,14 @@
     </div>
 
     <div id="loading">正在初始化视觉引擎...<br><span style="font-size:0.8rem; color:#fff;">请允许摄像头权限</span></div>
+    <div id="perf-indicator" style="opacity: 0;">FPS: <span id="fps">60</span></div>
+
+    <!-- 调试功能 -->
+    <button id="debug-toggle">🔍 调试摄像头</button>
+    <div id="debug-status">状态: 等待初始化...</div>
+    <div id="debug-camera">
+        <video id="debug-video" autoplay playsinline muted></video>
+    </div>
 
     <!-- MediaPipe 需要的输入视频元素 -->
     <video id="input-video"></video>
@@ -187,7 +268,6 @@
         ringSystem.rotation.x = Math.PI / 8;
         scene.add(ringSystem);
 
-
         // ==========================================
         // 2. 摄像机控制逻辑变量
         // ==========================================
@@ -207,113 +287,208 @@
         // 3. MediaPipe 逻辑
         // ==========================================
         const videoElement = document.getElementById('input-video');
+        let hands, cameraUtils;
+        let mediaPipeInitialized = false;
 
-        function onResults(results) {
-            document.getElementById('loading').style.opacity = 0;
+        // 调试功能
+        let debugMode = false;
+        let debugVideoStream = null;
 
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                isHandDetected = true;
-                const landmarks = results.multiHandLandmarks[0];
+        // 调试功能：显示/隐藏摄像头
+        function setupDebugControls() {
+            const debugToggle = document.getElementById('debug-toggle');
+            const debugCamera = document.getElementById('debug-camera');
+            const debugStatus = document.getElementById('debug-status');
+            const debugVideo = document.getElementById('debug-video');
 
-                // --- A. 检测旋转 (Based on Hand Tilt) ---
-                // 使用手腕(0)和中指根部(9)的向量来计算手的旋转角度
-                const wrist = landmarks[0];
-                const middleTip = landmarks[9];
+            debugToggle.addEventListener('click', async () => {
+                debugMode = !debugMode;
                 
-                // 计算 x 和 y 的差值 (MediaPipe 坐标系: x left->right, y top->bottom)
-                const dx = middleTip.x - wrist.x;
-                const dy = middleTip.y - wrist.y;
-                
-                // 计算角度 (-PI to PI)
-                // 这里加个系数让旋转更灵敏
-                let rotationAngle = Math.atan2(dx, -dy); // -dy 因为屏幕坐标y向下
-                
-                // 平滑更新目标角度
-                // 3.0 是倍率，让手转一点，星球转多点
-                targetOrbitAngle = rotationAngle * 3.0;
-
-
-                // --- B. 检测缩放 (Fist vs Open & Distance) ---
-                
-                // 1. 计算"手的大小" (手腕到中指指尖的距离，近似代表手离摄像头的远近)
-                // Z坐标在2D模式下不准，用屏幕投影的欧几里得距离更稳
-                const sizeRef = Math.sqrt(
-                    Math.pow(landmarks[0].x - landmarks[9].x, 2) + 
-                    Math.pow(landmarks[0].y - landmarks[9].y, 2)
-                ); 
-
-                // 2. 检测握拳还是张开
-                // 简单算法：指尖(8,12,16,20)到手腕(0)的距离如果都很短，就是握拳
-                const fingertips = [8, 12, 16, 20];
-                let foldedFingers = 0;
-                fingertips.forEach(idx => {
-                    const d = Math.sqrt(Math.pow(landmarks[idx].x - landmarks[0].x, 2) + Math.pow(landmarks[idx].y - landmarks[0].y, 2));
-                    // 阈值基于当前手掌大小 sizeRef
-                    if (d < sizeRef * 1.6) foldedFingers++; // 如果指尖距离手腕很近
-                });
-
-                const isFist = foldedFingers >= 3; // 3根以上手指弯曲算握拳
-                const isOpen = foldedFingers <= 1; // 1根以下手指弯曲算张开
-
-                // 3. 速度与距离逻辑
-                // sizeRef 越大，手越近；sizeRef 越小，手越远。
-                // 正常范围大约在 0.05 (远) 到 0.4 (近) 之间
-                
-                if (isFist) {
-                    // 握拳 + 变远(sizeRef变小) -> 相机变远
-                    // 逻辑：速度先慢后快。当手很远(sizeRef很小)时，相机距离(targetDistance)应该非常大
-                    // 使用反比函数模拟 "拉远"
-                    const factor = Math.max(0.01, sizeRef); 
-                    // 例子公式: base + constant / size
-                    targetDistance = 20 + 5 / factor; 
+                if (debugMode) {
+                    // 显示调试界面
+                    debugCamera.style.display = 'block';
+                    debugStatus.style.display = 'block';
+                    debugToggle.textContent = '🔍 关闭调试';
                     
-                } else if (isOpen) {
-                    // 张开 + 靠近(sizeRef变大) -> 相机靠近
-                    // 逻辑：速度先快后慢。当手很近(sizeRef很大)时，相机距离接近最小值
-                    // 使用衰减函数
-                    const factor = Math.min(0.5, sizeRef);
-                    // 线性映射反转，但加一点曲线
-                    targetDistance = 100 - (factor * 200); 
+                    // 尝试获取并显示摄像头
+                    try {
+                        if (!debugVideoStream) {
+                            const stream = await navigator.mediaDevices.getUserMedia({ 
+                                video: { width: 640, height: 480 } 
+                            });
+                            debugVideoStream = stream;
+                            debugVideo.srcObject = stream;
+                            updateDebugStatus('摄像头已连接', '#00ff00');
+                        } else {
+                            debugVideo.srcObject = debugVideoStream;
+                            updateDebugStatus('摄像头已连接', '#00ff00');
+                        }
+                    } catch (err) {
+                        updateDebugStatus('摄像头权限被拒绝', '#ff0000');
+                        console.error('摄像头访问错误:', err);
+                    }
+                } else {
+                    // 隐藏调试界面
+                    debugCamera.style.display = 'none';
+                    debugStatus.style.display = 'none';
+                    debugToggle.textContent = '🔍 调试摄像头';
+                    updateDebugStatus('状态: 等待初始化...', '#ffffff');
                 }
-
-                // 限制范围
-                targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance));
-
-            } else {
-                isHandDetected = false;
-            }
+            });
         }
 
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
+        // 更新调试状态显示
+        function updateDebugStatus(message, color = '#ffffff') {
+            const debugStatus = document.getElementById('debug-status');
+            if (debugStatus) {
+                debugStatus.textContent = `状态: ${message}`;
+                debugStatus.style.color = color;
+            }
+            console.log(`[调试状态] ${message}`);
+        }
 
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+        function onResults(results) {
+            // 原始逻辑：快速失败检查，确保稳定
+            if (!results || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                if (isHandDetected) {
+                    isHandDetected = false;
+                    updateDebugStatus('未检测到手势', '#ffff00');
+                }
+                return;
+            }
 
-        hands.onResults(onResults);
+            // 隐藏加载提示
+            const loadingEl = document.getElementById('loading');
+            if (loadingEl.style.opacity !== '0') {
+                loadingEl.style.opacity = '0';
+            }
 
-        const cameraUtils = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 640,
-            height: 480
-        });
-        cameraUtils.start();
+            isHandDetected = true;
+            const landmarks = results.multiHandLandmarks[0];
+
+            // --- A. 检测旋转 (Based on Hand Tilt) ---
+            // 使用手腕(0)和中指根部(9)的向量来计算手的旋转角度
+            const wrist = landmarks[0];
+            const middleTip = landmarks[9];
+            
+            // 计算 x 和 y 的差值 (MediaPipe 坐标系: x left->right, y top->bottom)
+            const dx = middleTip.x - wrist.x;
+            const dy = middleTip.y - wrist.y;
+            
+            // 计算角度 (-PI to PI)
+            // 这里加个系数让旋转更灵敏
+            let rotationAngle = Math.atan2(dx, -dy); // -dy 因为屏幕坐标y向下
+            
+            // 平滑更新目标角度
+            // 3.0 是倍率，让手转一点，星球转多点
+            targetOrbitAngle = rotationAngle * 3.0;
+
+
+            // --- B. 检测缩放 (Fist vs Open & Distance) ---
+            
+            // 1. 计算"手的大小" (手腕到中指指尖的距离，近似代表手离摄像头的远近)
+            // Z坐标在2D模式下不准，用屏幕投影的欧几里得距离更稳
+            const sizeRef = Math.sqrt(
+                Math.pow(landmarks[0].x - landmarks[9].x, 2) + 
+                Math.pow(landmarks[0].y - landmarks[9].y, 2)
+            ); 
+
+            // 2. 检测握拳还是张开
+            // 简单算法：指尖(8,12,16,20)到手腕(0)的距离如果都很短，就是握拳
+            const fingertips = [8, 12, 16, 20];
+            let foldedFingers = 0;
+            fingertips.forEach(idx => {
+                const d = Math.sqrt(Math.pow(landmarks[idx].x - landmarks[0].x, 2) + Math.pow(landmarks[idx].y - landmarks[0].y, 2));
+                // 阈值基于当前手掌大小 sizeRef
+                if (d < sizeRef * 1.6) foldedFingers++; // 如果指尖距离手腕很近
+            });
+
+            const isFist = foldedFingers >= 3; // 3根以上手指弯曲算握拳
+            const isOpen = foldedFingers <= 1; // 1根以下手指弯曲算张开
+
+            // 3. 速度与距离逻辑
+            // sizeRef 越大，手越近；sizeRef 越小，手越远。
+            // 正常范围大约在 0.05 (远) 到 0.4 (近) 之间
+            
+            if (isFist) {
+                // 握拳 + 远离(sizeRef变小) -> 相机变远
+                // 逻辑：速度先慢后快。当手很远(sizeRef很小)时，相机距离(targetDistance)应该非常大
+                // 使用反比函数模拟 "拉远"
+                const factor = Math.max(0.01, sizeRef); 
+                // 例子公式: base + constant / size
+                targetDistance = 20 + 5 / factor; 
+                
+            } else if (isOpen) {
+                // 张开 + 靠近(sizeRef变大) -> 相机靠近
+                // 逻辑：速度先快后慢。当手很近(sizeRef很大)时，相机距离接近最小值
+                // 使用衰减函数
+                const factor = Math.min(0.5, sizeRef);
+                // 线性映射反转，但加一点曲线
+                targetDistance = 100 - (factor * 200); 
+            }
+
+            // 限制范围
+            targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance));
+            
+            // 调试信息
+            updateDebugStatus(`手势识别: ${isFist ? '握拳' : isOpen ? '张开' : '其它'} | 距离: ${targetDistance.toFixed(1)}`, '#00ff00');
+        }
+
+        async function initializeMediaPipe() {
+            if (mediaPipeInitialized) return;
+            
+            const mpStart = performance.now();
+            updateDebugStatus('正在初始化MediaPipe...', '#ffff00');
+
+            try {
+                // 异步初始化Hands
+                hands = new Hands({locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }});
+
+                hands.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                hands.onResults(onResults);
+
+                // 初始化Camera
+                cameraUtils = new Camera(videoElement, {
+                    onFrame: async () => {
+                        if (hands && hands.send) {
+                            await hands.send({image: videoElement});
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
+                
+                await cameraUtils.start();
+
+                mediaPipeInitialized = true;
+                console.log(`MediaPipe初始化耗时: ${(performance.now() - mpStart).toFixed(2)}ms`);
+                updateDebugStatus('MediaPipe初始化完成', '#00ff00');
+                
+            } catch (error) {
+                console.error('MediaPipe初始化失败:', error);
+                updateDebugStatus(`MediaPipe错误: ${error.message}`, '#ff0000');
+                throw error;
+            }
+        }
 
         // ==========================================
         // 4. 渲染循环
         // ==========================================
+        let frameCount = 0;
+        let lastFPSTime = 0;
+        
         function animate() {
             requestAnimationFrame(animate);
 
             // --- 更新位置逻辑 ---
-
             if (isHandDetected) {
                 // 平滑插值 (Lerp)
                 // 旋转插值
@@ -347,6 +522,21 @@
             ringSystem.rotation.z -= 0.001; // 环逆向微转
 
             renderer.render(scene, camera);
+
+            // FPS计算
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFPSTime >= 500) {
+                const fps = Math.round((frameCount * 1000) / (now - lastFPSTime));
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                lastFPSTime = now;
+                
+                const perfIndicator = document.getElementById('perf-indicator');
+                if (perfIndicator.style.opacity === '0') {
+                    perfIndicator.style.opacity = '1';
+                }
+            }
         }
 
         // 窗口大小调整
@@ -356,7 +546,60 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        animate();
+        // ==========================================
+        // 5. 启动流程
+        // ==========================================
+        let startupTriggered = false;
+
+        async function startApplication() {
+            if (startupTriggered) return;
+            startupTriggered = true;
+
+            // 显示加载状态
+            const loadingEl = document.getElementById('loading');
+            loadingEl.innerHTML = '正在初始化引擎...<br><span style="font-size:0.8rem; color:#fff;">请允许摄像头权限</span>';
+
+            try {
+                // 初始化调试控件
+                setupDebugControls();
+                
+                // 初始化MediaPipe
+                await initializeMediaPipe();
+
+                // 启动渲染循环
+                animate();
+
+                // 更新UI
+                loadingEl.style.opacity = '0';
+                setTimeout(() => {
+                    loadingEl.style.display = 'none';
+                }, 500);
+
+                updateDebugStatus('系统运行正常', '#00ff00');
+
+            } catch (error) {
+                console.error('启动失败:', error);
+                loadingEl.innerHTML = `启动失败<br><span style="font-size:0.8rem; color:#fff;">错误: ${error.message}</span>`;
+                loadingEl.style.color = '#ff4444';
+                updateDebugStatus(`启动失败: ${error.message}`, '#ff0000');
+            }
+        }
+
+        // 页面加载完成后自动启动
+        window.addEventListener('load', () => {
+            // 延迟一小段时间，让DOM和脚本完全稳定
+            setTimeout(startApplication, 100);
+        });
+
+        // 用户交互触发（备用方案）
+        document.addEventListener('click', startApplication, { once: true });
+
+        // 页面卸载时清理资源
+        window.addEventListener('beforeunload', () => {
+            if (debugVideoStream) {
+                debugVideoStream.getTracks().forEach(track => track.stop());
+            }
+        });
     </script>
 </body>
 </html>
