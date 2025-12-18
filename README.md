@@ -23,7 +23,7 @@ GitHub Pages 部署版本：
 cd web-ar-particle-system
 python -m http.server 8080
 # 访问 http://localhost:8080/WebARPlanetParticles_Offline.html
-```
+
 
 ### 方法 3：无痕模式测试
 - Chrome: `Ctrl+Shift+N`
@@ -42,6 +42,7 @@ python -m http.server 8080
 - ✅ 本地依赖库已下载并配置
 - ✅ README 已更新，包含详细部署指南
 - ✅ 错误修复指南已添加
+```
 ---
 
 ## 🌟 核心功能
@@ -417,4 +418,5 @@ MIT License - 可自由使用、修改和分发
 | 星球星环 | 3,000 | **0.6** | 双环结构(14-18,22-26) | 自转(-0.001)、白色 |
 
 如遇问题，请检查控制台错误信息或参考故障排除章节。
+
 
