@@ -1,3 +1,34 @@
+# 🚨 紧急修复：GitHub Pages 无法运行？
+
+**如果你在 GitHub Pages 上遇到 `ERR_BLOCKED_BY_CLIENT` 或页面无法加载**，请使用以下**完全离线版本**：
+
+## ⚡ 立即解决方案（推荐）
+
+### 方法 1：使用完全离线版
+1. 下载所有文件到本地
+2. 使用这个文件：`WebARPlanetParticles_Offline.html`
+3. 它包含所有本地依赖，无需CDN
+
+### 方法 2：本地快速测试
+```bash
+# 下载项目后
+cd web-ar-particle-system
+python -m http.server 8080
+# 访问 http://localhost:8080/WebARPlanetParticles_Offline.html
+```
+
+### 方法 3：无痕模式测试
+- Chrome: `Ctrl+Shift+N`
+- Firefox: `Ctrl+Shift+P`
+- 这会禁用浏览器扩展，避免资源被阻止
+
+## 📋 完整部署指南
+详细步骤请查看：
+- `DEPLOYMENT_CHECKLIST.md` - 完整部署清单
+- `README_GitHub_Pages.md` - GitHub Pages 专用指南
+
+---
+
 # WebAR 粒子互动系统 & 圣诞树交互系统 & 星球粒子系统
 
 这是一个基于 Three.js 和 MediaPipe Hands 的 WebAR 互动应用集合，包含三个完整的3D交互体验：粒子系统、圣诞树系统和星球粒子系统。
