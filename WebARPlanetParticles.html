@@ -5,110 +5,802 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>粒子星球 - 手势控制</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
-        canvas { display: block; }
+        /* ================= 1. 基础设置 ================= */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Microsoft YaHei', 'Songti SC', serif; 
+            color: #fff;
+        }
         
-        /* 隐藏原始视频，我们只需要数据 */
-        #input-video {
+        canvas { 
+            display: block; 
+        }
+
+        /* ================= 2. 全新UI设计系统 ================= */
+        :root {
+            /* 调色板 - 宇宙科技主题 */
+            --bg-dark: #0a0a0a;
+            --bg-glass: rgba(15, 15, 20, 0.72);
+            --bg-glass-hover: rgba(25, 25, 35, 0.85);
+            
+            --gold-primary: #ffaa00;
+            --gold-light: #ffdd66;
+            --gold-dark: #cc8800;
+            --gold-glow: rgba(255, 170, 0, 0.4);
+            
+            --blue-accent: #00ccff;
+            --purple-accent: #aa66ff;
+            --white-pure: #ffffff;
+            --white-dim: #b8b8b8;
+            
+            /* 尺寸系统 */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 12px;
+            --spacing-lg: 16px;
+            --spacing-xl: 20px;
+            
+            --ui-scale: 1.0;
+        }
+
+        @media screen and (max-height: 800px) { :root { --ui-scale: 0.85; } }
+        @media screen and (min-width: 2000px) { :root { --ui-scale: 1.1; } }
+        :fullscreen { --ui-scale: 1.0; }
+
+        /* 玻璃拟态基础 */
+        .glass-panel {
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            box-sizing: border-box;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--gold-glow);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px var(--gold-glow);
+        }
+
+        /* 动画过渡 */
+        #right-sidebar, #top-left-controls, #bottom-right-controls { 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        
+        .panel-hidden { 
+            transform: translateX(40px) scale(var(--ui-scale)) !important; 
+            opacity: 0 !important; 
+            pointer-events: none !important; 
+        }
+        
+        .hidden { display: none !important; }
+
+        /* ================= 3. 主要UI容器 ================= */
+        
+        /* 左上角控制组 - 标题和系统信息 */
+        #top-left-controls { 
+            position: absolute; 
+            top: var(--spacing-lg); 
+            left: var(--spacing-lg); 
+            pointer-events: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-sm); 
+            z-index: 50; 
+            transform: scale(var(--ui-scale));
+            transform-origin: top left;
+        }
+
+        /* 右侧边栏 - 主要控制 */
+        #right-sidebar { 
+            position: absolute; 
+            top: var(--spacing-lg); 
+            right: var(--spacing-lg); 
+            width: 280px; 
+            height: calc(100vh - var(--spacing-xl) * 2); 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-sm); 
+            z-index: 20; 
+            pointer-events: auto; 
+            transform: scale(var(--ui-scale)); 
+            transform-origin: top right; 
+        }
+
+        /* 底部左下角 - 调试和状态 */
+        #bottom-left-controls {
             position: absolute;
-            width: 1px;
-            height: 1px;
+            bottom: var(--spacing-lg);
+            left: var(--spacing-lg);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            z-index: 30;
+            transform: scale(var(--ui-scale));
+            transform-origin: bottom left;
+        }
+
+        /* 右下角 - 摄像头 */
+        #bottom-right-controls {
+            position: absolute;
+            bottom: var(--spacing-lg);
+            right: var(--spacing-lg);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            z-index: 25;
+            transform: scale(var(--ui-scale));
+            transform-origin: bottom right;
+            /* 确保摄像头窗口不会遮挡右侧边栏底部 */
+            max-height: 50vh;
+            overflow: visible;
+        }
+
+        /* 顶部中央 - 交互提示 */
+        #gesture-hint {
+            position: absolute;
+            top: var(--spacing-xl);
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--gold-light);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 16px;
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 170, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            z-index: 40;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        #gesture-hint.show {
+            opacity: 1;
+        }
+
+        /* ================= 4. 标题和文字系统 ================= */
+        .title-container { 
+            background: rgba(0, 0, 0, 0.2);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 170, 0, 0.2);
+        }
+
+        .title-container:hover {
+            background: rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.2);
+            border-color: var(--gold-primary);
+        }
+
+        .title-main { 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--gold-light); 
+            letter-spacing: 2px; 
+            text-transform: uppercase;
+            text-shadow: 0 0 20px var(--gold-glow);
+            margin-bottom: 4px;
+        }
+
+        .title-subtitle {
+            font-size: 11px;
+            color: var(--white-dim);
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
+
+        /* ================= 5. 标题和分组 ================= */
+        .section-title { 
+            font-size: 13px; 
+            font-weight: 700; 
+            color: var(--gold-primary); 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px; 
+            padding: var(--spacing-xs) var(--spacing-sm);
+            margin: var(--spacing-sm) 0 var(--spacing-xs);
+            border-left: 3px solid var(--gold-primary);
+            background: linear-gradient(90deg, rgba(255, 170, 0, 0.1) 0%, transparent 100%);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+
+        .subsection-title {
+            font-size: 11px;
+            color: var(--white-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: var(--spacing-md);
+            margin-bottom: var(--spacing-xs);
+            opacity: 0.8;
+            font-weight: 600;
+        }
+
+        /* ================= 6. 控件样式 ================= */
+        
+        /* 滚动容器 */
+        .scroll-content { 
+            flex: 1; 
+            overflow-y: auto; 
+            pointer-events: auto; 
+            padding: var(--spacing-sm); 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-sm); 
+            scrollbar-width: thin; 
+            scrollbar-color: var(--gold-primary) transparent;
+        }
+
+        .scroll-content::-webkit-scrollbar { width: 4px; }
+        .scroll-content::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 2px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: var(--gold-primary); border-radius: 2px; }
+
+        /* 输入框 */
+        .input-glass { 
+            background: rgba(0, 0, 0, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            color: var(--gold-light); 
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: 12px; 
+            outline: none; 
+            transition: all 0.3s ease; 
+            border-radius: var(--radius-sm); 
+            width: 100%; 
+            box-sizing: border-box; 
+            text-align: center; 
+            height: 36px;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+
+        .input-glass:focus { 
+            border-color: var(--gold-primary); 
+            background: rgba(0, 0, 0, 0.5); 
+            box-shadow: 0 0 12px var(--gold-glow);
+        }
+
+        select.input-glass { 
+            cursor: pointer; 
+            text-align: left;
+            padding-left: var(--spacing-sm);
+        }
+
+        select.input-glass option { 
+            background: #1a1a1a; 
+            color: var(--gold-primary); 
+            font-size: 11px;
+        }
+
+        /* 滑块 */
+        input[type=range] { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+            margin: var(--spacing-sm) 0; 
+            height: 36px;
+        }
+
+        input[type=range]:focus { outline: none; }
+
+        input[type=range]::-webkit-slider-runnable-track { 
+            width: 100%; 
+            height: 4px; 
+            cursor: pointer; 
+            background: rgba(255, 255, 255, 0.15); 
+            border-radius: 2px; 
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-thumb { 
+            height: 16px; 
+            width: 16px; 
+            border-radius: 50%; 
+            background: var(--gold-primary); 
+            cursor: pointer; 
+            -webkit-appearance: none; 
+            margin-top: -6px; 
+            box-shadow: 0 0 8px var(--gold-glow);
+            border: 2px solid var(--bg-dark);
+            transition: all 0.2s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover { 
+            transform: scale(1.2); 
+            background: var(--gold-light);
+            box-shadow: 0 0 12px var(--gold-primary);
+        }
+
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+
+        /* 颜色选择器 */
+        input[type="color"] { 
+            -webkit-appearance: none; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            width: 40px; 
+            height: 24px; 
+            cursor: pointer; 
+            padding: 0; 
+            background: none; 
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        input[type="color"]:hover {
+            border-color: var(--gold-primary);
+            transform: scale(1.05);
+        }
+
+        /* 按钮 */
+        .elegant-btn { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 170, 0, 0.3); 
+            color: var(--gold-light); 
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer; 
+            text-transform: uppercase; 
+            font-size: 11px; 
+            transition: all 0.3s ease; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: var(--radius-sm); 
+            box-sizing: border-box; 
+            position: relative; 
+            overflow: hidden; 
+            font-family: 'Microsoft YaHei', sans-serif; 
+            text-decoration: none;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            height: 36px;
+            gap: 6px;
+        }
+
+        .elegant-btn:hover { 
+            background: rgba(255, 170, 0, 0.15); 
+            border-color: var(--gold-primary); 
+            color: var(--white-pure); 
+            box-shadow: 0 0 16px var(--gold-glow);
+            transform: translateY(-1px);
+        }
+
+        .elegant-btn:active { 
+            transform: translateY(0) scale(0.98); 
+            box-shadow: 0 0 8px var(--gold-glow);
+        }
+
+        .elegant-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .elegant-btn.primary { 
+            background: linear-gradient(135deg, rgba(255, 170, 0, 0.2), rgba(255, 221, 102, 0.1));
+            border-color: var(--gold-primary);
+        }
+
+        .elegant-btn.primary:hover {
+            background: linear-gradient(135deg, rgba(255, 170, 0, 0.3), rgba(255, 221, 102, 0.2));
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        .elegant-btn.danger { 
+            border-color: rgba(255, 68, 68, 0.5); 
+            color: #ff6666; 
+        }
+
+        .elegant-btn.danger:hover { 
+            background: rgba(255, 68, 68, 0.2); 
+            border-color: #ff4444;
+            box-shadow: 0 0 16px rgba(255, 68, 68, 0.4);
+        }
+
+        /* 上传按钮特殊处理 */
+        .upload-btn {
+            position: relative;
+        }
+
+        .upload-btn input[type="file"] { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            opacity: 0; 
+            cursor: pointer; 
+        }
+
+        /* 控制组容器 */
+        .control-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: var(--spacing-xs); 
+            margin-bottom: var(--spacing-sm);
+            background: rgba(0, 0, 0, 0.2);
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-row { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 4px; 
+            margin-bottom: var(--spacing-xs); 
+        }
+
+        .control-label { 
+            color: var(--white-dim); 
+            font-size: 10px; 
+            font-weight: 700; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-value {
+            color: var(--gold-primary);
+            font-weight: 600;
+        }
+
+        /* 方向控制 - 3x3网格 */
+        .direction-pad { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            gap: 4px; 
+            margin-top: var(--spacing-sm); 
+            padding-top: var(--spacing-sm); 
+            border-top: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+
+        .dir-btn { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 170, 0, 0.2); 
+            color: var(--gold-light); 
+            text-align: center; 
+            cursor: pointer; 
+            padding: var(--spacing-sm) 0; 
+            border-radius: var(--radius-sm); 
+            font-size: 12px; 
+            user-select: none; 
+            transition: 0.2s; 
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dir-btn:hover { 
+            background: rgba(255, 170, 0, 0.2); 
+            color: var(--white-pure); 
+            box-shadow: 0 0 10px var(--gold-glow);
+        }
+
+        .dir-btn:active { 
+            background: var(--gold-primary); 
+            color: var(--bg-dark); 
+            transform: scale(0.95);
+        }
+
+        .dir-btn.center {
+            font-size: 10px;
+            padding: var(--spacing-xs);
+        }
+
+        /* 交互按钮网格 */
+        .interaction-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: var(--spacing-xs); 
+            margin-bottom: var(--spacing-sm); 
+        }
+
+        /* ================= 7. 摄像头预览 ================= */
+        #webcam-wrapper { 
+            width: 140px; 
+            height: 105px; 
+            border: 2px solid var(--gold-primary); 
+            border-radius: var(--radius-md); 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); 
+            overflow: hidden; 
+            background: #000; 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(var(--ui-scale));
+            transform-origin: bottom right;
+            position: relative;
+            /* 确保不遮挡其他界面元素 */
+            margin-bottom: 8px;
+        }
+
+        #webcam-wrapper.camera-hidden { 
+            opacity: 0; 
+            pointer-events: none; 
+            transform: translateY(20px) scale(var(--ui-scale)); 
+            border-color: rgba(255, 170, 0, 0.2);
+        }
+
+        /* 在小屏幕上进一步缩小摄像头窗口 */
+        @media (max-width: 768px) {
+            #webcam-wrapper { 
+                width: 100px; 
+                height: 75px; 
+            }
+        }
+
+        #webcam-canvas { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transform: scaleX(-1); 
+            display: block; 
+        }
+
+        #cam-status { 
+            position: absolute; 
+            bottom: 6px; 
+            right: 6px; 
+            width: 8px; 
+            height: 8px; 
+            background: #550000; 
+            border-radius: 50%; 
+            box-shadow: 0 0 6px #ff0000; 
+            z-index: 30; 
+            transition: 0.3s; 
+            border: 2px solid #000;
+        }
+
+        #cam-status.active { 
+            background: #00ff00; 
+            box-shadow: 0 0 10px #00ff00; 
+        }
+
+        /* ================= 8. 调试信息 ================= */
+        #debug-info { 
+            background: rgba(0, 0, 0, 0.6); 
+            color: #00ff00;
+            font-size: 11px; 
+            font-weight: 600;
+            font-family: 'Consolas', monospace;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            max-width: 240px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* ================= 9. 照片管理器 ================= */
+        #delete-manager { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(10, 10, 10, 0.92); 
+            z-index: 60; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            pointer-events: auto; 
+            backdrop-filter: blur(20px);
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        #delete-manager.hidden {
             opacity: 0;
             pointer-events: none;
         }
 
-        /* 简单的加载/提示 UI */
-        #ui-layer {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: rgba(255, 255, 255, 0.8);
-            pointer-events: none;
-            z-index: 10;
-        }
-        h1 { font-size: 1.2rem; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; }
-        .instruction { font-size: 0.9rem; margin-bottom: 5px; display: flex; align-items: center; }
-        .icon { margin-right: 8px; font-weight: bold; color: #ffaa00; }
-        
-        #loading {
-            position: absolute;
-            top: 50%; width: 100%; text-align: center;
-            color: #ffaa00; font-size: 1.5rem;
-            transform: translateY(-50%);
-            transition: opacity 0.5s;
-            pointer-events: none;
-        }
-        
-        /* 性能指示器 */
-        #perf-indicator {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.8rem;
-            text-align: right;
-            pointer-events: none;
-            z-index: 10;
+        .manager-title { 
+            color: var(--gold-primary); 
+            font-size: 24px; 
+            letter-spacing: 3px; 
+            margin-bottom: var(--spacing-lg);
+            text-shadow: 0 0 20px var(--gold-glow);
+            font-weight: 700;
+            text-transform: uppercase;
         }
 
-        /* 调试摄像头显示 */
-        #debug-camera {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 160px;
-            height: 120px;
-            border: 2px solid #ffaa00;
-            border-radius: 8px;
+        #photo-grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+            width: 70%; 
+            max-width: 800px;
+            height: 50%; 
+            overflow-y: auto; 
+            justify-content: center; 
+            padding: 20px; 
+            border: 1px solid rgba(255, 170, 0, 0.3); 
+            margin: 20px 0; 
+            background: rgba(0, 0, 0, 0.5); 
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(8px);
+        }
+
+        .photo-item { 
+            width: 90px; 
+            height: 90px; 
+            position: relative; 
+            border: 2px solid var(--gold-primary); 
+            transition: all 0.3s ease; 
+            cursor: pointer; 
+            border-radius: var(--radius-sm);
             overflow: hidden;
-            display: none;
             background: #000;
-            z-index: 15;
         }
 
-        #debug-camera video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* 镜像翻转 */
+        .photo-item:hover { 
+            transform: scale(1.1) translateY(-2px); 
+            border-color: var(--gold-light); 
+            box-shadow: 0 0 20px var(--gold-glow);
+            z-index: 10;
         }
 
-        /* 调试按钮 */
-        #debug-toggle {
-            position: absolute;
-            bottom: 150px;
-            left: 20px;
-            background: rgba(255, 170, 0, 0.3);
-            border: 1px solid #ffaa00;
-            color: #ffaa00;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            z-index: 16;
-            transition: all 0.3s;
+        .photo-thumb { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            display: block;
         }
 
-        #debug-toggle:hover {
-            background: rgba(255, 170, 0, 0.5);
+        .delete-x { 
+            position: absolute; 
+            top: -6px; 
+            right: -6px; 
+            width: 22px; 
+            height: 22px; 
+            background: #ff4444; 
+            color: white; 
+            border-radius: 50%; 
+            text-align: center; 
+            line-height: 20px; 
+            font-size: 14px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            border: 2px solid var(--white-pure);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
 
-        /* 调试状态指示器 */
-        #debug-status {
-            position: absolute;
-            bottom: 190px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            display: none;
-            z-index: 16;
+        .delete-x:hover { 
+            transform: scale(1.2) rotate(90deg); 
+            background: #ff0000;
+            box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
+        }
+
+        .manager-actions { 
+            display: flex; 
+            gap: var(--spacing-lg); 
+            margin-top: var(--spacing-md);
+        }
+
+        .manager-actions .elegant-btn {
+            min-width: 120px;
+            font-size: 12px;
+        }
+
+        /* ================= 10. 加载器 ================= */
+        #loader { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: var(--bg-dark); 
+            z-index: 100; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            transition: opacity 0.5s ease-out; 
+        }
+
+        .spinner { 
+            width: 60px; 
+            height: 60px; 
+            border: 2px solid rgba(255, 170, 0, 0.15); 
+            border-top: 3px solid var(--gold-primary); 
+            border-radius: 50%; 
+            animation: spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; 
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        @keyframes spin { 
+            0% { transform: rotate(0deg) scale(1); } 
+            50% { transform: rotate(180deg) scale(1.05); } 
+            100% { transform: rotate(360deg) scale(1); } 
+        }
+
+        .loader-text { 
+            color: var(--gold-primary); 
+            font-size: 14px; 
+            letter-spacing: 6px; 
+            margin-top: 30px; 
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        /* ================= 11. 响应式微调 ================= */
+        @media (max-width: 768px) {
+            :root { --ui-scale: 0.8; }
+            #right-sidebar { width: 240px; right: 10px; }
+            #top-left-controls { left: 10px; }
+            #bottom-left-controls { left: 10px; }
+            #bottom-right-controls { right: 10px; }
+            #webcam-wrapper { width: 120px; height: 90px; }
+            .elegant-btn { padding: 6px 10px; font-size: 11px; }
+        }
+
+        /* ================= 12. 快捷键面板 ================= */
+        #shortcuts-panel {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 170, 0, 0.2);
+            font-size: 10px;
+            backdrop-filter: blur(8px);
+        }
+
+        #shortcuts-panel div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            color: var(--white-dim);
+        }
+
+        #shortcuts-panel span:first-child {
+            color: var(--gold-primary);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        #shortcuts-panel span:last-child {
+            color: var(--gold-light);
+            opacity: 0.8;
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 强制隐藏所有视频元素，避免双重画面 */
+        video {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            z-index: -1 !important;
+            visibility: hidden !important;
         }
     </style>
 
-    <!-- 引入 MediaPipe 和 Three.js - 优化版CDN -->
+    <!-- 引入 MediaPipe 和 Three.js - 保持原有CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -138,9 +830,9 @@
 
             if (!isSecure && !isLocalhost) {
                 console.warn('⚠️ 非安全环境 - 可能无法使用摄像头');
-                const loadingEl = document.getElementById('loading');
-                if (loadingEl) {
-                    loadingEl.innerHTML = `请使用HTTPS或localhost访问<br><span style="font-size:0.8rem;">当前: ${protocol}</span>`;
+                const loaderEl = document.getElementById('loader');
+                if (loaderEl) {
+                    loaderEl.innerHTML = `请使用HTTPS或localhost访问<br><span style="font-size:0.8rem;">当前: ${protocol}</span>`;
                 }
             }
             
@@ -159,10 +851,10 @@
                 return true;
             } catch (error) {
                 console.error('❌ 摄像头权限失败:', error);
-                const loadingEl = document.getElementById('loading');
-                if (loadingEl) {
-                    loadingEl.innerHTML = `摄像头访问失败<br><span style="font-size:0.8rem;">错误: ${error.message}</span>`;
-                    loadingEl.style.color = '#ff4444';
+                const loaderEl = document.getElementById('loader');
+                if (loaderEl) {
+                    loaderEl.innerHTML = `摄像头访问失败<br><span style="font-size:0.8rem;">错误: ${error.message}</span>`;
+                    loaderEl.style.color = '#ff4444';
                 }
                 throw error;
             }
@@ -171,25 +863,171 @@
 </head>
 <body>
 
-    <div id="ui-layer">
-        <h1>Hand Control Universe</h1>
-        <div class="instruction"><span class="icon">↺</span> 旋转手掌 -> 旋转星球</div>
-        <div class="instruction"><span class="icon">✊</span> 握拳 + 远离 -> 快速拉远镜头</div>
-        <div class="instruction"><span class="icon">🖐</span> 张开 + 靠近 -> 快速拉近镜头</div>
+    <!-- 加载界面 -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">SYSTEM INITIALIZING</div>
     </div>
 
-    <div id="loading">正在初始化视觉引擎...<br><span style="font-size:0.8rem; color:#fff;">请允许摄像头权限</span></div>
-    <div id="perf-indicator" style="opacity: 0;">FPS: <span id="fps">60</span></div>
+    <!-- 顶部中央交互提示 -->
+    <div id="gesture-hint">正在初始化系统...</div>
 
-    <!-- 调试功能 -->
-    <button id="debug-toggle">🔍 调试摄像头</button>
-    <div id="debug-status">状态: 等待初始化...</div>
-    <div id="debug-camera">
-        <video id="debug-video" autoplay playsinline muted></video>
+    <!-- 左上角：标题和系统信息 -->
+    <div id="top-left-controls">
+        <div class="glass-panel title-container">
+            <div class="title-main">Hand Control Universe</div>
+            <div class="title-subtitle">粒子星球 - 手势交互系统</div>
+        </div>
+        
+        <div id="shortcuts-panel" class="glass-panel">
+            <div style="font-weight: 700; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid rgba(255, 170, 0, 0.3); padding-bottom: 4px;">
+                ⌨️ 快捷键
+            </div>
+            <div><span>H</span><span>显示/隐藏界面</span></div>
+            <div><span>空格</span><span>重置旋转</span></div>
+            <div><span>Z</span><span>切换照片</span></div>
+            <div><span>C</span><span>显示/隐藏摄像头</span></div>
+            <div><span>↑↓←→</span><span>手动旋转</span></div>
+        </div>
     </div>
 
-    <!-- MediaPipe 需要的输入视频元素 -->
-    <video id="input-video"></video>
+    <!-- 右侧边栏：主要控制面板 -->
+    <div id="right-sidebar">
+        <div class="glass-panel scroll-content">
+            
+            <!-- 场景定制 -->
+            <div class="section-title">场景定制</div>
+
+            <div class="control-group">
+                <div class="control-row">
+                    <label class="control-label">
+                        旋转速度 <span class="control-value" id="rotation-value">1.4</span>
+                    </label>
+                    <input type="range" min="0.1" max="5.0" step="0.1" value="1.4" oninput="updateRotationSpeed(this.value)">
+                </div>
+            </div>
+
+            <!-- 形态切换 -->
+            <div class="subsection-title">形态切换</div>
+            <div class="interaction-grid">
+                <button class="elegant-btn primary" onclick="setMode('TREE')">
+                    <span>聚合</span>
+                </button>
+                <button class="elegant-btn" onclick="cycleNextPhoto()">
+                    <span>抓取照片</span>
+                </button>
+            </div>
+
+            <!-- 粒子控制 -->
+            <div class="subsection-title">粒子控制</div>
+            <div class="control-group">
+                <div class="control-row">
+                    <label class="control-label">
+                        星球密度 <span class="control-value" id="tree-value">4000</span>
+                    </label>
+                    <input type="range" min="2000" max="8000" step="500" value="4000" id="slider-tree" oninput="document.getElementById('tree-value').textContent=this.value">
+                </div>
+                <div class="control-row">
+                    <label class="control-label">
+                        环带密度 <span class="control-value" id="dust-value">3000</span>
+                    </label>
+                    <input type="range" min="1000" max="6000" step="500" value="3000" id="slider-dust" oninput="document.getElementById('dust-value').textContent=this.value">
+                </div>
+            </div>
+
+            <!-- 手势说明 -->
+            <div class="subsection-title">手势说明</div>
+            <div class="control-group" style="font-size: 11px; line-height: 1.6; color: var(--white-dim);">
+                <div>🔄 旋转手掌 → 旋转星球</div>
+                <div>✊ 握拳 + 远离 → 快速拉远</div>
+                <div>🖐 张开 + 靠近 → 快速拉近</div>
+            </div>
+
+            <button class="elegant-btn primary" style="width: 100%; margin-top: 8px;" onclick="applyParticleSettings()">
+                ⚡ 重置场景
+            </button>
+
+            <!-- 资源管理 -->
+            <div class="section-title" style="margin-top: 16px;">资源管理</div>
+
+            <div class="control-group">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <label class="elegant-btn upload-btn">
+                        <span>+ 上传照片</span>
+                        <input type="file" id="file-input" multiple accept="image/*">
+                    </label>
+                    <button class="elegant-btn" onclick="openDeleteManager()">
+                        <span>管理照片</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 摄像头控制 -->
+            <div class="control-group">
+                <button class="elegant-btn" id="toggle-cam-btn" onclick="toggleCameraDisplay()">
+                    <span>📷 隐藏/显示画面</span>
+                </button>
+            </div>
+
+            <!-- 手动控制 -->
+            <div class="section-title" style="margin-top: 16px;">手动控制</div>
+            <div class="control-group">
+                <div class="direction-pad">
+                    <div></div>
+                    <div class="dir-btn" onmousedown="startRotate('up')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▲</div>
+                    <div></div>
+                    <div class="dir-btn" onmousedown="startRotate('left')" onmouseup="stopRotate()" onmouseleave="stopRotate()">◀</div>
+                    <div class="dir-btn center" onclick="resetRotation()" title="重置旋转">●</div>
+                    <div class="dir-btn" onmousedown="startRotate('right')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▶</div>
+                    <div></div>
+                    <div class="dir-btn" onmousedown="startRotate('down')" onmouseup="stopRotate()" onmouseleave="stopRotate()">▼</div>
+                    <div></div>
+                </div>
+            </div>
+
+            <!-- 界面控制 -->
+            <div class="section-title" style="margin-top: 16px;">界面控制</div>
+            <div class="interaction-grid">
+                <button class="elegant-btn" onclick="toggleUI()">
+                    <span>👁️ 隐藏界面</span>
+                </button>
+                <button class="elegant-btn" onclick="toggleFullScreen()">
+                    <span>⛶ 全屏</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 左下角：调试信息 -->
+    <div id="bottom-left-controls">
+        <div id="debug-info" class="glass-panel">等待初始化...</div>
+    </div>
+
+    <!-- 右下角：摄像头预览 -->
+    <div id="bottom-right-controls">
+        <div id="webcam-wrapper" class="glass-panel">
+            <canvas id="webcam-canvas" width="320" height="240"></canvas>
+            <div id="cam-status"></div>
+        </div>
+    </div>
+
+    <!-- MediaPipe 需要的输入视频元素 - 完全隐藏 -->
+    <video id="input-video" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1;"></video>
+
+    <!-- 照片管理器 -->
+    <div id="delete-manager" class="hidden">
+        <div class="manager-title">照片库管理</div>
+        <div id="photo-grid"></div>
+        <div class="manager-actions">
+            <button class="elegant-btn danger glass-panel" onclick="clearAllPhotos()">
+                清空所有
+            </button>
+            <button class="elegant-btn glass-panel" onclick="closeDeleteManager()">
+                关闭
+            </button>
+        </div>
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -228,87 +1066,113 @@
         const particleTexture = createLightTexture();
 
         // --- 创建星球 (橙色) ---
-        const planetGeometry = new THREE.BufferGeometry();
-        const planetCount = 4000;
-        const planetPos = new Float32Array(planetCount * 3);
-        const planetSizes = new Float32Array(planetCount);
+        let planetGeometry = new THREE.BufferGeometry();
+        let planetCount = 4000;
+        let planetPos = new Float32Array(planetCount * 3);
+        let planetSizes = new Float32Array(planetCount);
 
-        for (let i = 0; i < planetCount; i++) {
-            // 球面分布逻辑：使得越靠近表面粒子越多，但内部也有
-            const r = 10 * Math.cbrt(Math.random()); // 半径分布
-            // 修正球面分布，确保表面聚集（球面）
-            const radius = 8 + Math.random() * 2; // 核心半径 8-10
-            
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
+        function createPlanetParticles(count) {
+            if (window.planetMesh) {
+                scene.remove(window.planetMesh);
+                window.planetMesh.geometry.dispose();
+                window.planetMesh.material.dispose();
+            }
 
-            const x = radius * Math.sin(phi) * Math.cos(theta);
-            const y = radius * Math.sin(phi) * Math.sin(theta);
-            const z = radius * Math.cos(phi);
+            planetCount = count;
+            planetPos = new Float32Array(planetCount * 3);
+            planetSizes = new Float32Array(planetCount);
 
-            planetPos[i * 3] = x;
-            planetPos[i * 3 + 1] = y;
-            planetPos[i * 3 + 2] = z;
+            for (let i = 0; i < planetCount; i++) {
+                // 球面分布逻辑：使得越靠近表面粒子越多，但内部也有
+                const r = 10 * Math.cbrt(Math.random()); // 半径分布
+                // 修正球面分布，确保表面聚集（球面）
+                const radius = 8 + Math.random() * 2; // 核心半径 8-10
+                
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
 
-            // 粒子大小随机
-            planetSizes[i] = Math.random() * 1.5 + 0.5;
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+
+                planetPos[i * 3] = x;
+                planetPos[i * 3 + 1] = y;
+                planetPos[i * 3 + 2] = z;
+
+                // 粒子大小随机
+                planetSizes[i] = Math.random() * 1.5 + 0.5;
+            }
+
+            planetGeometry.setAttribute('position', new THREE.BufferAttribute(planetPos, 3));
+            planetGeometry.setAttribute('size', new THREE.BufferAttribute(planetSizes, 1));
+
+            const planetMaterial = new THREE.PointsMaterial({
+                color: 0xffaa00, // 橙色
+                size: 0.8,
+                map: particleTexture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false, 
+                vertexColors: false
+            });
+
+            window.planetMesh = new THREE.Points(planetGeometry, planetMaterial);
+            scene.add(window.planetMesh);
         }
-
-        planetGeometry.setAttribute('position', new THREE.BufferAttribute(planetPos, 3));
-        planetGeometry.setAttribute('size', new THREE.BufferAttribute(planetSizes, 1));
-
-        const planetMaterial = new THREE.PointsMaterial({
-            color: 0xffaa00, // 橙色
-            size: 0.8,
-            map: particleTexture,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false, 
-            vertexColors: false
-        });
-
-        const planet = new THREE.Points(planetGeometry, planetMaterial);
-        scene.add(planet);
 
         // --- 创建星环 (白色双环) ---
-        const ringParticlesCount = 3000;
-        const ringGeometry = new THREE.BufferGeometry();
-        const ringPos = new Float32Array(ringParticlesCount * 3);
+        let ringGeometry = new THREE.BufferGeometry();
+        let ringParticlesCount = 3000;
 
-        for (let i = 0; i < ringParticlesCount; i++) {
-            // 环 1: 半径 14-18, 环 2: 半径 22-26
-            const isRing1 = Math.random() > 0.5;
-            const baseR = isRing1 ? 14 : 22;
-            const ringWidth = 4;
-            const r = baseR + Math.random() * ringWidth;
-            
-            const angle = Math.random() * Math.PI * 2;
-            
-            // 稍微倾斜
-            const x = r * Math.cos(angle);
-            const z = r * Math.sin(angle);
-            const y = (Math.random() - 0.5) * 1; // 扁平
+        function createRingParticles(count) {
+            if (window.ringSystem) {
+                scene.remove(window.ringSystem);
+                ringGeometry.dispose();
+                window.ringSystem.material.dispose();
+            }
 
-            ringPos[i * 3] = x;
-            ringPos[i * 3 + 1] = y;
-            ringPos[i * 3 + 2] = z;
+            ringParticlesCount = count;
+            const ringPos = new Float32Array(ringParticlesCount * 3);
+
+            for (let i = 0; i < ringParticlesCount; i++) {
+                // 环 1: 半径 14-18, 环 2: 半径 22-26
+                const isRing1 = Math.random() > 0.5;
+                const baseR = isRing1 ? 14 : 22;
+                const ringWidth = 4;
+                const r = baseR + Math.random() * ringWidth;
+                
+                const angle = Math.random() * Math.PI * 2;
+                
+                // 稍微倾斜
+                const x = r * Math.cos(angle);
+                const z = r * Math.sin(angle);
+                const y = (Math.random() - 0.5) * 1; // 扁平
+
+                ringPos[i * 3] = x;
+                ringPos[i * 3 + 1] = y;
+                ringPos[i * 3 + 2] = z;
+            }
+
+            ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
+            const ringMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.6,
+                map: particleTexture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            window.ringSystem = new THREE.Points(ringGeometry, ringMaterial);
+            // 让环稍微倾斜一点
+            window.ringSystem.rotation.z = Math.PI / 8;
+            window.ringSystem.rotation.x = Math.PI / 8;
+            scene.add(window.ringSystem);
         }
 
-        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
-        const ringMaterial = new THREE.PointsMaterial({
-            color: 0xffffff,
-            size: 0.6,
-            map: particleTexture,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        const ringSystem = new THREE.Points(ringGeometry, ringMaterial);
-        // 让环稍微倾斜一点
-        ringSystem.rotation.z = Math.PI / 8;
-        ringSystem.rotation.x = Math.PI / 8;
-        scene.add(ringSystem);
+        // 初始创建
+        createPlanetParticles(4000);
+        createRingParticles(3000);
 
         // ==========================================
         // 2. 摄像机控制逻辑变量
@@ -333,76 +1197,46 @@
         let mediaPipeInitialized = false;
 
         // 调试功能
-        let debugMode = false;
+        let debugMode = true; // 默认显示调试信息
         let debugVideoStream = null;
 
-        // 调试功能：显示/隐藏摄像头
-        function setupDebugControls() {
-            const debugToggle = document.getElementById('debug-toggle');
-            const debugCamera = document.getElementById('debug-camera');
-            const debugStatus = document.getElementById('debug-status');
-            const debugVideo = document.getElementById('debug-video');
-
-            debugToggle.addEventListener('click', async () => {
-                debugMode = !debugMode;
-                
-                if (debugMode) {
-                    // 显示调试界面
-                    debugCamera.style.display = 'block';
-                    debugStatus.style.display = 'block';
-                    debugToggle.textContent = '🔍 关闭调试';
-                    
-                    // 尝试获取并显示摄像头
-                    try {
-                        if (!debugVideoStream) {
-                            const stream = await navigator.mediaDevices.getUserMedia({ 
-                                video: { width: 640, height: 480 } 
-                            });
-                            debugVideoStream = stream;
-                            debugVideo.srcObject = stream;
-                            updateDebugStatus('摄像头已连接', '#00ff00');
-                        } else {
-                            debugVideo.srcObject = debugVideoStream;
-                            updateDebugStatus('摄像头已连接', '#00ff00');
-                        }
-                    } catch (err) {
-                        updateDebugStatus('摄像头权限被拒绝', '#ff0000');
-                        console.error('摄像头访问错误:', err);
-                    }
-                } else {
-                    // 隐藏调试界面
-                    debugCamera.style.display = 'none';
-                    debugStatus.style.display = 'none';
-                    debugToggle.textContent = '🔍 调试摄像头';
-                    updateDebugStatus('状态: 等待初始化...', '#ffffff');
-                }
-            });
-        }
-
         // 更新调试状态显示
-        function updateDebugStatus(message, color = '#ffffff') {
-            const debugStatus = document.getElementById('debug-status');
+        function updateDebugStatus(message) {
+            const debugStatus = document.getElementById('debug-info');
             if (debugStatus) {
-                debugStatus.textContent = `状态: ${message}`;
-                debugStatus.style.color = color;
+                debugStatus.textContent = message;
             }
             console.log(`[调试状态] ${message}`);
         }
 
         function onResults(results) {
+            // 隐藏加载提示 - 优先执行，确保界面正常
+            const loaderEl = document.getElementById('loader');
+            if (loaderEl && loaderEl.style.display !== 'none') {
+                console.log('MediaPipe工作正常，开始隐藏加载界面');
+                loaderEl.style.opacity = '0';
+                setTimeout(() => {
+                    if (loaderEl) {
+                        loaderEl.style.display = 'none';
+                        console.log('✅ 加载界面已隐藏');
+                        // 显示成功提示
+                        const hint = document.getElementById('gesture-hint');
+                        if (hint) {
+                            hint.textContent = "系统就绪 - 请尝试手势控制";
+                            hint.classList.add('show');
+                            setTimeout(() => hint.classList.remove('show'), 3000);
+                        }
+                    }
+                }, 500);
+            }
+
             // 原始逻辑：快速失败检查，确保稳定
             if (!results || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
                 if (isHandDetected) {
                     isHandDetected = false;
-                    updateDebugStatus('未检测到手势', '#ffff00');
+                    updateDebugStatus('未检测到手势\n等待手势输入...');
                 }
                 return;
-            }
-
-            // 隐藏加载提示
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl.style.opacity !== '0') {
-                loadingEl.style.opacity = '0';
             }
 
             isHandDetected = true;
@@ -473,14 +1307,15 @@
             targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance));
             
             // 调试信息
-            updateDebugStatus(`手势识别: ${isFist ? '握拳' : isOpen ? '张开' : '其它'} | 距离: ${targetDistance.toFixed(1)}`, '#00ff00');
+            const gestureText = isFist ? '握拳' : isOpen ? '张开' : '其它';
+            updateDebugStatus(`手势识别: ${gestureText}\n距离: ${targetDistance.toFixed(1)}\n旋转: ${(targetOrbitAngle).toFixed(2)}`);
         }
 
         async function initializeMediaPipe() {
             if (mediaPipeInitialized) return;
             
             const mpStart = performance.now();
-            updateDebugStatus('正在初始化MediaPipe...', '#ffff00');
+            updateDebugStatus('正在初始化MediaPipe...');
 
             try {
                 // 等待MediaPipe库加载完成
@@ -527,13 +1362,27 @@
 
                 mediaPipeInitialized = true;
                 console.log(`MediaPipe初始化耗时: ${(performance.now() - mpStart).toFixed(2)}ms`);
-                updateDebugStatus('MediaPipe初始化完成', '#00ff00');
+                updateDebugStatus('MediaPipe初始化完成\n系统运行正常');
                 
             } catch (error) {
                 console.error('MediaPipe初始化失败:', error);
-                updateDebugStatus(`MediaPipe错误: ${error.message}`, '#ff0000');
+                updateDebugStatus(`MediaPipe错误: ${error.message}`);
                 throw error;
             }
+        }
+
+        // 摄像头预览渲染
+        function renderWebcamPreview() {
+            const canvas = document.getElementById('webcam-canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            function draw() {
+                if (videoElement.readyState >= 2) {
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                }
+                requestAnimationFrame(draw);
+            }
+            draw();
         }
 
         // ==========================================
@@ -575,8 +1424,8 @@
 
             // --- 粒子动画 ---
             // 让星球本身也在自转，增加动感
-            planet.rotation.y += 0.002;
-            ringSystem.rotation.z -= 0.001; // 环逆向微转
+            if (window.planetMesh) window.planetMesh.rotation.y += 0.002;
+            if (window.ringSystem) window.ringSystem.rotation.z -= 0.001; // 环逆向微转
 
             renderer.render(scene, camera);
 
@@ -585,14 +1434,9 @@
             const now = performance.now();
             if (now - lastFPSTime >= 500) {
                 const fps = Math.round((frameCount * 1000) / (now - lastFPSTime));
-                document.getElementById('fps').textContent = fps;
+                // 更新UI中的FPS显示（如果需要）
                 frameCount = 0;
                 lastFPSTime = now;
-                
-                const perfIndicator = document.getElementById('perf-indicator');
-                if (perfIndicator.style.opacity === '0') {
-                    perfIndicator.style.opacity = '1';
-                }
             }
         }
 
@@ -604,7 +1448,603 @@
         });
 
         // ==========================================
-        // 5. 启动流程
+        // 5. 界面交互函数
+        // ==========================================
+
+        // 更新旋转速度
+        window.updateRotationSpeed = function(value) {
+            // 调整自动旋转速度
+            autoRotateSpeed = parseFloat(value) * 0.001;
+            document.getElementById('rotation-value').textContent = value;
+        };
+
+        // 设置模式
+        window.setMode = function(mode) {
+            // 简单的模式切换只是为了视觉反馈，实际功能不变
+            const hint = document.getElementById('gesture-hint');
+            if (mode === 'TREE') {
+                hint.textContent = "已切换到聚合模式";
+                // 重置距离
+                targetDistance = 40;
+            } else {
+                hint.textContent = "模式: " + mode;
+            }
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 1500);
+        };
+
+        // 切换照片（保持原有逻辑）
+        window.cycleNextPhoto = function() {
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = "照片切换功能（需先上传照片）";
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 2000);
+        };
+
+        // 手动控制旋转
+        let manualRotateState = { x: 0, y: 0 };
+        window.startRotate = function(direction) {
+            const speed = 0.02;
+            if (direction === 'up') manualRotateState.x = -speed;
+            if (direction === 'down') manualRotateState.x = speed;
+            if (direction === 'left') manualRotateState.y = -speed;
+            if (direction === 'right') manualRotateState.y = speed;
+            
+            // 立即应用手动旋转
+            isHandDetected = false; // 暂停手势控制的影响
+            targetOrbitAngle += manualRotateState.y * 10;
+            targetDistance += manualRotateState.x * 20;
+            targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance));
+        };
+
+        window.stopRotate = function() {
+            manualRotateState = { x: 0, y: 0 };
+        };
+
+        window.resetRotation = function() {
+            targetDistance = 40;
+            targetOrbitAngle = 0;
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = "位置已重置";
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 1500);
+        };
+
+        // 界面显示/隐藏
+        let uiVisible = true;
+        window.toggleUI = function() {
+            uiVisible = !uiVisible;
+            const rightSidebar = document.getElementById('right-sidebar');
+            const topLeft = document.getElementById('top-left-controls');
+            const bottomLeft = document.getElementById('bottom-left-controls');
+            const bottomRight = document.getElementById('bottom-right-controls');
+            
+            if (uiVisible) {
+                rightSidebar.classList.remove('panel-hidden');
+                topLeft.classList.remove('panel-hidden');
+                bottomLeft.classList.remove('panel-hidden');
+                bottomRight.classList.remove('panel-hidden');
+            } else {
+                rightSidebar.classList.add('panel-hidden');
+                topLeft.classList.add('panel-hidden');
+                bottomLeft.classList.add('panel-hidden');
+                bottomRight.classList.add('panel-hidden');
+            }
+
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = uiVisible ? "界面已显示" : "界面已隐藏";
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 1500);
+        };
+
+        // 摄像头显示/隐藏
+        let cameraVisible = true;
+        window.toggleCameraDisplay = function() {
+            cameraVisible = !cameraVisible;
+            const wrapper = document.getElementById('webcam-wrapper');
+            const btn = document.getElementById('toggle-cam-btn');
+            
+            if (cameraVisible) {
+                wrapper.classList.remove('camera-hidden');
+                if (btn) btn.innerHTML = '<span>📷 隐藏画面</span>';
+            } else {
+                wrapper.classList.add('camera-hidden');
+                if (btn) btn.innerHTML = '<span>📷 显示画面</span>';
+            }
+        };
+
+        // 全屏
+        window.toggleFullScreen = function() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        };
+
+        // 应用粒子设置
+        window.applyParticleSettings = function() {
+            const planetCount = parseInt(document.getElementById('slider-tree').value);
+            const ringCount = parseInt(document.getElementById('slider-dust').value);
+            
+            createPlanetParticles(planetCount);
+            createRingParticles(ringCount);
+            
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = "场景已更新";
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 1500);
+        };
+
+        // 照片管理器
+        window.openDeleteManager = function() {
+            const manager = document.getElementById('delete-manager');
+            manager.classList.remove('hidden');
+            updatePhotoManager();
+        };
+
+        window.closeDeleteManager = function() {
+            document.getElementById('delete-manager').classList.add('hidden');
+        };
+
+        window.clearAllPhotos = function() {
+            if (confirm("确定要清空所有照片吗？此操作不可恢复。")) {
+                closeDeleteManager();
+                const hint = document.getElementById('gesture-hint');
+                hint.textContent = "照片已清空";
+                hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 1500);
+            }
+        };
+
+        // 文件上传处理 - 完整实现 + 安全保护
+        function setupFileUpload() {
+            const fileInput = document.getElementById('file-input');
+            if (fileInput) {
+                fileInput.addEventListener('change', async (e) => {
+                    // 检查是否正在处理，防止重复点击
+                    if (window.isProcessingPhotos) {
+                        showHint("正在处理中，请稍候...");
+                        return;
+                    }
+
+                    const files = e.target.files;
+                    if (files.length === 0) return;
+
+                    // 安全检查：检查存储配额
+                    try {
+                        if (navigator.storage && navigator.storage.estimate) {
+                            const estimate = await navigator.storage.estimate();
+                            const quota = estimate.quota;
+                            const usage = estimate.usage;
+                            const availableMB = (quota - usage) / (1024 * 1024);
+                            
+                            if (availableMB < 10) {
+                                showHint("存储空间不足，请删除一些照片");
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("存储配额检查失败:", e);
+                    }
+
+                    // 限制单次上传数量，避免批量处理导致卡顿
+                    const maxBatchSize = 5;
+                    if (files.length > maxBatchSize) {
+                        showHint(`单次最多上传${maxBatchSize}张，将处理前${maxBatchSize}张`);
+                    }
+
+                    window.isProcessingPhotos = true;
+                    const hint = document.getElementById('gesture-hint');
+                    hint.textContent = `正在处理 ${Math.min(files.length, maxBatchSize)} 张照片...`;
+                    hint.classList.add('show');
+
+                    // 获取现有照片
+                    let photos = JSON.parse(localStorage.getItem('webAR_photos') || '[]');
+                    
+                    // 限制总照片数量，避免存储溢出
+                    const maxPhotos = 15; // 降低到15张
+                    if (photos.length >= maxPhotos) {
+                        showHint(`照片库已满（最多${maxPhotos}张），请删除后再上传`);
+                        window.isProcessingPhotos = false;
+                        return;
+                    }
+
+                    const filesToProcess = Array.from(files).slice(0, maxBatchSize);
+                    let processedCount = 0;
+
+                    // 处理每个文件（带错误处理）
+                    for (let file of filesToProcess) {
+                        try {
+                            if (!file.type.startsWith('image/')) continue;
+                            
+                            // 检查文件大小（限制2MB以内）
+                            if (file.size > 2 * 1024 * 1024) {
+                                console.warn(`跳过过大文件: ${file.name}`);
+                                continue;
+                            }
+
+                            // 压缩并转换为Base64
+                            const base64 = await compressImage(file);
+                            if (base64) {
+                                photos.push({
+                                    id: Date.now() + Math.random(),
+                                    data: base64,
+                                    name: file.name,
+                                    timestamp: new Date().toISOString()
+                                });
+                                processedCount++;
+                            }
+                        } catch (error) {
+                            console.error(`处理文件 ${file.name} 失败:`, error);
+                        }
+                    }
+
+                    // 再次限制数量（防止超限）
+                    if (photos.length > maxPhotos) {
+                        photos = photos.slice(-maxPhotos);
+                    }
+
+                    // 保存到localStorage，添加异常处理
+                    try {
+                        localStorage.setItem('webAR_photos', JSON.stringify(photos));
+                    } catch (error) {
+                        console.error("localStorage保存失败:", error);
+                        showHint("存储失败，可能空间不足");
+                        window.isProcessingPhotos = false;
+                        return;
+                    }
+
+                    hint.textContent = `成功添加 ${processedCount} 张照片！`;
+                    setTimeout(() => hint.classList.remove('show'), 2000);
+
+                    // 更新照片管理器
+                    updatePhotoManager();
+
+                    // 如果当前没有照片显示，立即显示第一张，并自动分配位置
+                    if (!window.currentPhotoIndex && photos.length > 0) {
+                        window.currentPhotoIndex = 0;
+                        // 自动为照片分配固定位置
+                        assignPhotoPosition(0, photos.length);
+                        // 延迟执行，避免与系统初始化冲突
+                        setTimeout(() => {
+                            applyPhotoToScene(0, window.photoPosition);
+                        }, 500);
+                    }
+
+                    window.isProcessingPhotos = false;
+                });
+            }
+        }
+
+        // 为照片分配固定位置
+        function assignPhotoPosition(index, totalPhotos) {
+            // 根据照片数量和索引分配不同的固定位置
+            const positions = [
+                { x: 0, y: -15, z: 0,      name: '底部中央' },
+                { x: -20, y: 0, z: -10,    name: '左侧' },
+                { x: 20, y: 0, z: -10,     name: '右侧' },
+                { x: 0, y: 10, z: -15,     name: '顶部' },
+                { x: -15, y: -5, z: 15,    name: '左后' },
+                { x: 15, y: -5, z: 15,     name: '右后' },
+                { x: 0, y: 0, z: -25,      name: '前方' },
+                { x: -10, y: 8, z: 5,      name: '左上' },
+                { x: 10, y: 8, z: 5,       name: '右上' }
+            ];
+
+            // 为当前照片选择一个位置（循环使用）
+            window.photoPosition = positions[index % positions.length];
+            showHint(`照片 ${index + 1} 分配到: ${window.photoPosition.name}`);
+        }
+
+        // 压缩图片并转换为Base64
+        function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 限制最大尺寸，避免存储过大数据
+                        const maxWidth = 800;
+                        const maxHeight = 800;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width *= ratio;
+                            height *= ratio;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // 转换为JPEG，质量0.8
+                        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+                        resolve(compressed);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 更新照片管理器UI
+        function updatePhotoManager() {
+            const grid = document.getElementById('photo-grid');
+            const photos = JSON.parse(localStorage.getItem('webAR_photos') || '[]');
+            
+            if (photos.length === 0) {
+                grid.innerHTML = '<div style="color:#888; text-align:center; padding:40px;">暂无照片<br><small style="opacity:0.6;">请上传照片以显示在3D场景中</small></div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            photos.forEach((photo, index) => {
+                const item = document.createElement('div');
+                item.className = 'photo-item';
+                item.innerHTML = `
+                    <img src="${photo.data}" class="photo-thumb" alt="照片${index + 1}">
+                    <div class="delete-x" onclick="deletePhoto(${index})">×</div>
+                `;
+                item.onclick = (e) => {
+                    if (!e.target.classList.contains('delete-x')) {
+                        window.currentPhotoIndex = index;
+                        applyPhotoToScene(index);
+                        closeDeleteManager();
+                        showHint(`已切换到照片 ${index + 1}`);
+                    }
+                };
+                grid.appendChild(item);
+            });
+        }
+
+        // 删除指定照片
+        window.deletePhoto = function(index) {
+            const photos = JSON.parse(localStorage.getItem('webAR_photos') || '[]');
+            if (index >= 0 && index < photos.length) {
+                photos.splice(index, 1);
+                localStorage.setItem('webAR_photos', JSON.stringify(photos));
+                updatePhotoManager();
+                
+                // 如果删除的是当前显示的照片，更新当前索引
+                if (window.currentPhotoIndex === index) {
+                    window.currentPhotoIndex = 0;
+                    if (photos.length > 0) {
+                        applyPhotoToScene(0);
+                    } else {
+                        removePhotoFromScene();
+                    }
+                } else if (window.currentPhotoIndex > index) {
+                    window.currentPhotoIndex--;
+                }
+            }
+        };
+
+        // 清空所有照片
+        window.clearAllPhotos = function() {
+            if (confirm("确定要清空所有照片吗？此操作不可恢复。")) {
+                localStorage.removeItem('webAR_photos');
+                window.currentPhotoIndex = 0;
+                removePhotoFromScene();
+                closeDeleteManager();
+                showHint("所有照片已清空");
+            }
+        };
+
+        // 照片切换功能 - 完整实现
+        window.cycleNextPhoto = function() {
+            const photos = JSON.parse(localStorage.getItem('webAR_photos') || '[]');
+            if (photos.length === 0) {
+                showHint("请先上传照片");
+                return;
+            }
+
+            if (window.currentPhotoIndex === undefined) {
+                window.currentPhotoIndex = 0;
+            } else {
+                window.currentPhotoIndex = (window.currentPhotoIndex + 1) % photos.length;
+            }
+
+            applyPhotoToScene(window.currentPhotoIndex);
+            showHint(`照片 ${window.currentPhotoIndex + 1} / ${photos.length}`);
+        };
+
+        // 在3D场景中显示照片 - 简化版本，确保稳定性
+        async function applyPhotoToScene(index, position = null) {
+            // 安全检查：防止频繁调用
+            if (window.isApplyingPhoto) {
+                showHint("请等待当前照片加载完成");
+                return;
+            }
+            
+            const photos = JSON.parse(localStorage.getItem('webAR_photos') || '[]');
+            if (index < 0 || index >= photos.length) return;
+
+            window.isApplyingPhoto = true;
+            
+            // 移除现有照片
+            removePhotoFromScene();
+            showHint("正在加载照片...");
+
+            // 如果没有指定位置，自动分配
+            if (!position) {
+                assignPhotoPosition(index, photos.length);
+                position = window.photoPosition;
+            }
+
+            try {
+                // 创建图片纹理
+                const textureLoader = new THREE.TextureLoader();
+                const texture = await new Promise((resolve, reject) => {
+                    textureLoader.load(photos[index].data, resolve, undefined, reject);
+                });
+
+                // 简化：创建一个基于图片的平面几何体，而不是复杂的粒子系统
+                const img = new Image();
+                img.src = photos[index].data;
+                await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+
+                // 计算图片比例
+                const aspectRatio = img.width / img.height;
+                const width = 8;  // 基础宽度
+                const height = width / aspectRatio;  // 保持比例
+
+                // 创建平面几何体
+                const geometry = new THREE.PlaneGeometry(width, height);
+                
+                // 创建材质
+                const material = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.6,
+                    side: THREE.DoubleSide
+                });
+
+                const photoMesh = new THREE.Mesh(geometry, material);
+                photoMesh.name = `AR_Photo_${index}`;
+
+                // 根据位置设置3D坐标和旋转
+                let posX = position.x;
+                let posY = position.y;
+                let posZ = position.z;
+                let rotationX = 0, rotationY = 0, rotationZ = 0;
+
+                // 根据位置调整朝向，确保照片正面朝向场景中心
+                if (position.name.includes('底部')) {
+                    // 底部：朝上
+                    posY = position.y + height / 2;
+                    rotationX = Math.PI / 2; // 旋转90度，朝上
+                } else if (position.name.includes('顶部')) {
+                    // 顶部：朝下
+                    posY = position.y - height / 2;
+                    rotationX = -Math.PI / 2; // 旋转-90度，朝下
+                } else if (position.name.includes('左侧')) {
+                    // 左侧：朝右
+                    posX = position.x + width / 2;
+                    rotationY = Math.PI / 2; // 旋转90度，朝右
+                } else if (position.name.includes('右侧')) {
+                    // 右侧：朝左
+                    posX = position.x - width / 2;
+                    rotationY = -Math.PI / 2; // 旋转-90度，朝左
+                } else if (position.name.includes('前方')) {
+                    // 前方：朝前
+                    posZ = position.z + 0.1; // 稍微向前偏移
+                } else if (position.name.includes('后')) {
+                    // 后方：朝后
+                    posZ = position.z - 0.1;
+                    rotationY = Math.PI; // 旋转180度，朝后
+                } else if (position.name.includes('左上') || position.name.includes('右上')) {
+                    // 上方位置：轻微朝向中心
+                    rotationX = Math.PI / 8;
+                }
+
+                // 设置位置和旋转
+                photoMesh.position.set(posX, posY, posZ);
+                photoMesh.rotation.set(rotationX, rotationY, rotationZ);
+
+                // 添加到场景
+                scene.add(photoMesh);
+                
+                showHint(`照片 ${index + 1} 放置在: ${position.name}`);
+
+            } catch (error) {
+                console.error("照片加载失败:", error);
+                showHint("照片加载失败");
+            } finally {
+                window.isApplyingPhoto = false;
+            }
+        }
+
+        // 移除场景中的照片（统一处理）- 适配新的平面几何体
+        function removePhotoFromScene() {
+            const objectsToRemove = [];
+            scene.traverse((obj) => {
+                if (obj.name && obj.name.startsWith('AR_Photo_')) {
+                    objectsToRemove.push(obj);
+                    if (obj.material) {
+                        if (obj.material.map) obj.material.map.dispose();
+                        obj.material.dispose();
+                    }
+                    if (obj.geometry) {
+                        obj.geometry.dispose();
+                    }
+                }
+            });
+            objectsToRemove.forEach(obj => scene.remove(obj));
+        }
+
+
+        // 通用提示显示函数
+        function showHint(message) {
+            const hint = document.getElementById('gesture-hint');
+            hint.textContent = message;
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 2000);
+        }
+
+        // 快捷键设置
+        function setupKeyboardShortcuts() {
+            window.addEventListener('keydown', (e) => {
+                // 只在输入框外响应快捷键
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+                
+                const key = e.key.toLowerCase();
+                const code = e.code;
+                
+                switch(key) {
+                    case 'h':
+                        e.preventDefault();
+                        toggleUI();
+                        break;
+                    case 'z':
+                        e.preventDefault();
+                        cycleNextPhoto();
+                        break;
+                    case 'c':
+                        e.preventDefault();
+                        toggleCameraDisplay();
+                        break;
+                }
+
+                if (code === 'Space') {
+                    e.preventDefault();
+                    resetRotation();
+                }
+
+                // 方向键
+                if (code === 'ArrowUp') {
+                    e.preventDefault();
+                    startRotate('up');
+                }
+                if (code === 'ArrowDown') {
+                    e.preventDefault();
+                    startRotate('down');
+                }
+                if (code === 'ArrowLeft') {
+                    e.preventDefault();
+                    startRotate('left');
+                }
+                if (code === 'ArrowRight') {
+                    e.preventDefault();
+                    startRotate('right');
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const code = e.code;
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
+                    stopRotate();
+                }
+            });
+        }
+
+        // ==========================================
+        // 6. 启动流程
         // ==========================================
         let startupTriggered = false;
 
@@ -613,8 +2053,24 @@
             startupTriggered = true;
 
             // 显示加载状态
-            const loadingEl = document.getElementById('loading');
-            loadingEl.innerHTML = '正在初始化引擎...<br><span style="font-size:0.8rem; color:#fff;">请允许摄像头权限</span>';
+            const loaderEl = document.getElementById('loader');
+            if (loaderEl) {
+                loaderEl.innerHTML = '<div class="spinner"></div><div class="loader-text">INITIALIZING</div>';
+            }
+
+            // 添加备用隐藏机制：15秒后强制隐藏加载界面
+            const backupHideTimer = setTimeout(() => {
+                if (loaderEl && loaderEl.style.display !== 'none') {
+                    console.log('🔧 备用机制：15秒后强制隐藏加载界面');
+                    loaderEl.style.opacity = '0';
+                    setTimeout(() => {
+                        if (loaderEl) {
+                            loaderEl.style.display = 'none';
+                            console.log('✅ 加载界面已通过备用机制隐藏');
+                        }
+                    }, 500);
+                }
+            }, 15000);
 
             try {
                 // 1. 检查安全上下文
@@ -626,38 +2082,54 @@
                 // 2. 预请求摄像头权限
                 await requestCameraPermission();
 
-                // 3. 初始化调试控件
-                setupDebugControls();
-                
-                // 4. 初始化MediaPipe
+                // 3. 初始化MediaPipe
                 await initializeMediaPipe();
 
-                // 5. 启动渲染循环
+                // 4. 启动3D渲染循环（立即启动，不要等待摄像头预览）
                 animate();
 
-                // 6. 更新UI
-                loadingEl.style.opacity = '0';
-                setTimeout(() => {
-                    loadingEl.style.display = 'none';
-                }, 500);
+                // 5. 初始化文件上传和快捷键
+                setupFileUpload();
+                setupKeyboardShortcuts();
 
-                updateDebugStatus('系统运行正常', '#00ff00');
+                // 6. 启动摄像头预览（在后台运行，不影响3D渲染）
+                renderWebcamPreview();
+
+                // 显示初始提示
+                const hint = document.getElementById('gesture-hint');
+                if (hint) {
+                    hint.textContent = "系统就绪 - 请尝试手势控制";
+                    hint.classList.add('show');
+                    setTimeout(() => hint.classList.remove('show'), 3000);
+                }
+
+                // 启动系统健康监控
+                startHealthMonitoring();
+
+                // 清理备用计时器（如果已经隐藏）
+                setTimeout(() => clearTimeout(backupHideTimer), 0);
 
             } catch (error) {
                 console.error('启动失败:', error);
-                loadingEl.innerHTML = `启动失败<br><span style="font-size:0.8rem; color:#fff;">错误: ${error.message}</span>`;
-                loadingEl.style.color = '#ff4444';
-                updateDebugStatus(`启动失败: ${error.message}`, '#ff0000');
+                // 清理备用计时器
+                clearTimeout(backupHideTimer);
                 
-                // 如果是权限问题，提供更详细的帮助信息
+                if (loaderEl) {
+                    loaderEl.innerHTML = `<div class="loader-text" style="color:#ff4444; font-size:12px;">启动失败<br><span style="font-size:0.8rem; color:#fff;">${error.message}</span></div>`;
+                }
+                
+                // 如果是权限问题，提供详细帮助
                 if (error.message.includes('permission') || error.message.includes('权限')) {
                     setTimeout(() => {
-                        loadingEl.innerHTML = `权限问题解决方案<br><span style="font-size:0.7rem; color:#fff;">
-                            1. 点击地址栏摄像头图标<br>
-                            2. 选择"始终允许"<br>
-                            3. 刷新页面<br>
-                            或点击下方调试按钮手动测试
-                        </span>`;
+                        if (loaderEl) {
+                            loaderEl.innerHTML = `<div class="loader-text" style="font-size:10px; line-height:1.6;">
+                                权限问题解决方案:<br>
+                                1. 点击地址栏摄像头图标<br>
+                                2. 选择"始终允许"<br>
+                                3. 刷新页面<br>
+                                或检查浏览器隐私设置
+                            </div>`;
+                        }
                     }, 2000);
                 }
             }
@@ -672,11 +2144,94 @@
         // 用户交互触发（备用方案）
         document.addEventListener('click', startApplication, { once: true });
 
+        // 系统健康监控
+        let healthCheckInterval;
+        
+        function startHealthMonitoring() {
+            // 每30秒检查一次系统健康状态
+            healthCheckInterval = setInterval(() => {
+                try {
+                    // 检查内存使用情况
+                    if (performance.memory) {
+                        const usedMB = performance.memory.usedJSHeapSize / (1024 * 1024);
+                        const totalMB = performance.memory.totalJSHeapSize / (1024 * 1024);
+                        
+                        if (usedMB > 200) {
+                            console.warn(`⚠️ 内存使用过高: ${usedMB.toFixed(1)}MB / ${totalMB.toFixed(1)}MB`);
+                            
+                            // 如果内存使用过高，清理照片场景
+                            if (window.isApplyingPhoto === false) {
+                                removePhotoFromScene();
+                                // 强制垃圾回收
+                                if (window.gc) window.gc();
+                            }
+                        }
+                        
+                        // 更新调试信息显示内存状态
+                        const debugStatus = document.getElementById('debug-info');
+                        if (debugStatus && debugStatus.textContent.includes('系统运行正常')) {
+                            debugStatus.textContent = `系统运行正常\n内存: ${usedMB.toFixed(1)}MB\nFPS: 稳定`;
+                        }
+                    }
+
+                    // 检查3D渲染器状态
+                    if (renderer && renderer.info) {
+                        const info = renderer.info;
+                        if (info.render.faces > 50000) {
+                            console.warn('⚠️ 渲染面数过多，可能影响性能');
+                        }
+                    }
+
+                    // 检查localStorage存储空间
+                    try {
+                        const photos = JSON.parse(localStorage.getItem('webAR_photos') || '[]');
+                        const storageSize = new Blob([JSON.stringify(photos)]).size;
+                        if (storageSize > 4 * 1024 * 1024) { // 4MB
+                            console.warn('⚠️ 本地存储空间占用过多');
+                        }
+                    } catch (e) {
+                        // 忽略检查错误
+                    }
+
+                } catch (error) {
+                    console.error('健康检查失败:', error);
+                }
+            }, 30000);
+
+            // 页面可见性变化时的处理
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    // 页面隐藏时暂停资源密集型操作
+                    console.log('页面隐藏，节省资源...');
+                    if (window.isProcessingPhotos) {
+                        showHint("后台运行中，照片处理暂停");
+                    }
+                } else {
+                    // 页面显示时恢复正常
+                    console.log('页面显示，恢复正常...');
+                }
+            });
+        }
+
         // 页面卸载时清理资源
         window.addEventListener('beforeunload', () => {
             if (debugVideoStream) {
                 debugVideoStream.getTracks().forEach(track => track.stop());
             }
+            if (healthCheckInterval) {
+                clearInterval(healthCheckInterval);
+            }
+            // 清理3D资源
+            if (window.planetMesh) {
+                window.planetMesh.geometry.dispose();
+                window.planetMesh.material.dispose();
+            }
+            if (window.ringSystem) {
+                window.ringSystem.geometry.dispose();
+                window.ringSystem.material.dispose();
+            }
+            // 清理照片资源
+            removePhotoFromScene();
         });
     </script>
 </body>
