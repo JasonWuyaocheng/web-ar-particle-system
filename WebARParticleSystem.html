@@ -219,8 +219,8 @@
 
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <script src="https://unpkg.com/@mediapipe/hands@0.4.1675469240/hands.js"></script>
-    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://unpkg.com/@mediapipe/camera_utils@0.3.1675469240/camera_utils.js"></script>
+    <script src="https://unpkg.com/@mediapipe/drawing_utils@0.3.1675469240/drawing_utils.js"></script>
 
     <script>
         const CONFIG = {
@@ -310,7 +310,7 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
             document.getElementById('scene').appendChild(renderer.domElement);
 
             geometry = new THREE.BufferGeometry();
