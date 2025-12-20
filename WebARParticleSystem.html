@@ -301,6 +301,44 @@
         morphToShape('sphere');
         animate();
 
+        // 给 MediaPipe 资源加 fetch / XHR 兜底：主用 jsDelivr，失败退回 unpkg
+        (function setupHandsCdnFallback() {
+            const primary = HANDS_PRIMARY_BASE;
+            const fallback = HANDS_FALLBACK_BASE;
+            const rawFetch = window.fetch;
+            window.fetch = async (input, init) => {
+                const url = typeof input === 'string' ? input : input && input.url;
+                try {
+                    return await rawFetch(input, init);
+                } catch (err) {
+                    if (url && typeof url === 'string' && url.startsWith(primary)) {
+                        const alt = url.replace(primary, fallback);
+                        return rawFetch(alt, init);
+                    }
+                    throw err;
+                }
+            };
+            const rawOpen = XMLHttpRequest.prototype.open;
+            const rawSend = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+                this._method = method;
+                this._primaryUrl = url;
+                this._fallbackUrl = (typeof url === 'string' && url.startsWith(primary)) ? url.replace(primary, fallback) : null;
+                return rawOpen.call(this, method, url, async, user, password);
+            };
+            XMLHttpRequest.prototype.send = function(body) {
+                if (this._fallbackUrl) {
+                    const retry = () => {
+                        rawOpen.call(this, this._method || 'GET', this._fallbackUrl, true);
+                        rawSend.call(this, body);
+                    };
+                    this.addEventListener('error', retry, { once: true });
+                    this.addEventListener('timeout', retry, { once: true });
+                }
+                return rawSend.call(this, body);
+            };
+        })();
+
         function initThree() {
             scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2('#02111d', 0.32);
@@ -741,14 +779,15 @@
 
         let mediapipeHands = null;
         let cameraFeed = null;
-        const HANDS_CDN_BASE = 'https://unpkg.com/@mediapipe/hands@0.4.1675469240/';
+        const HANDS_PRIMARY_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/';
+        const HANDS_FALLBACK_BASE = 'https://unpkg.com/@mediapipe/hands@0.4.1675469240/';
 
         function setupMediaPipe() {
             if (demoModeActive) {
                 stopDemoMode();
             }
             mediapipeHands = new Hands({
-                locateFile: (file) => `${HANDS_CDN_BASE}${file}`
+                locateFile: (file) => `${HANDS_PRIMARY_BASE}${file}`
             });
 
             mediapipeHands.setOptions({
