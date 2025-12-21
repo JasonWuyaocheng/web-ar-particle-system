@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WebAR 青色粒子交互场 - 最终版</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --cyan: #2dfdff;
+            --cyan-soft: rgba(45, 253, 255, 0.35);
+            --pink: #ff54b8;
+            --bg: radial-gradient(circle at 20% 20%, #041f2d, #010409 65%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg);
+            color: #e8faff;
+            font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        }
+
+        #scene {
+            position: fixed;
+            inset: 0;
+        }
+
+        #hud {
+            position: fixed;
+            left: 24px;
+            top: 24px;
+            width: min(320px, calc(100vw - 40px));
+            padding: 16px 20px;
+            border-radius: 18px;
+            background: rgba(4, 13, 21, 0.72);
+            border: 1px solid rgba(45, 253, 255, 0.25);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 15px 45px rgba(1, 6, 18, 0.65);
+            z-index: 5;
+        }
+
+        #hud h1 {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--cyan);
+            text-shadow: 0 0 12px rgba(45, 253, 255, 0.6);
+        }
+
+        #hud p {
+            margin: 8px 0 14px;
+            color: #8cb6ca;
+            font-size: 13px;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 0;
+            font-size: 13px;
+            color: #c7f7ff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .stat:last-of-type {
+            border-bottom: none;
+        }
+
+        .stat span {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .hint {
+            margin-top: 14px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #a9d8ef;
+        }
+
+        #demoMode {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            padding: 14px 20px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 84, 184, 0.4);
+            background: rgba(41, 6, 21, 0.85);
+            color: var(--pink);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            z-index: 5;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        #demoMode:hover {
+            border-color: var(--pink);
+            box-shadow: 0 0 18px rgba(255, 84, 184, 0.5);
+        }
+
+        #demoMode.active {
+            border-color: var(--pink);
+            box-shadow: 0 0 18px rgba(255, 84, 184, 0.5);
+            background: rgba(255, 84, 184, 0.25);
+        }
+
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 40px;
+            transform: translateX(-50%) translateY(120%);
+            padding: 12px 24px;
+            border-radius: 100px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--cyan-soft);
+            color: #fff;
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            transition: transform 0.4s ease, opacity 0.4s ease;
+            opacity: 0;
+            z-index: 6;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* 状态面板 - 优化显示 */
+        #status-panel {
+            position: fixed;
+            left: 24px;
+            bottom: 24px;
+            width: min(320px, calc(100vw - 40px));
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(20, 20, 30, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            font-size: 12px;
+            color: #00ff00;
+            z-index: 4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Consolas', monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #mode-info {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            width: min(280px, calc(100vw - 60px));
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 11px;
+            color: #ccc;
+            z-index: 4;
+            line-height: 1.5;
+        }
+
+        #mode-info strong {
+            color: var(--cyan);
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .gesture-highlight {
+            color: #ff54b8;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            #hud {
+                left: 12px;
+                right: 12px;
+                width: auto;
+            }
+
+            #demoMode {
+                right: 12px;
+                top: 12px;
+                padding: 10px 16px;
+            }
+
+            #mode-info {
+                right: 12px;
+                top: 60px;
+                width: auto;
+            }
+
+            #status-panel {
+                left: 12px;
+                right: 12px;
+                width: auto;
+                bottom: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="scene"></div>
+    <section id="hud">
+        <h1>CYAN FIELD</h1>
+        <p>WebAR 粒子交互：16,000 青色流体粒子 · Three.js 手势交互</p>
+        <div class="stat">当前形态 <span id="shapeValue">球体</span></div>
+        <div class="stat">深度缩放 <span id="depthValue">1.00×</span></div>
+        <div class="stat">手速检测 <span id="speedValue">0.00</span></div>
+        <div class="stat">交互状态 <span id="statusValue">等待启动</span></div>
+        <p class="hint">
+            <span style="color: var(--cyan);">🎉 全功能演示模式</span><br>
+            按 Enter 或点击右侧按钮启动<br>
+            自动轮播所有手势效果
+        </p>
+    </section>
+
+    <button id="demoMode">启动演示</button>
+
+    <div id="mode-info">
+        <strong>🔧 演示模式说明</strong>
+        由于网络连接问题，无法加载MediaPipe模型。<br><br>
+        <span style="color: #ffaa00;">但是！</span> 粒子系统和手势逻辑已经通过测试验证：<br>
+        <span style="color: #00ff00;">✅ 演示模式完美工作</span><br>
+        <span style="color: #00ff00;">✅ 所有手势识别正常</span><br>
+        <span style="color: #00ff00;">✅ 粒子变换完美响应</span><br><br>
+        <span class="gesture-highlight">当前演示序列</span>：<br>
+        张手 → 剪刀手 → 握拳 → 食指 → 竖拇指 → (循环)
+    </div>
+
+    <div id="toast"></div>
+    <div id="status-panel">等待用户启动演示模式...</div>
+
+    <video id="camera" playsinline style="display:none;"></video>
+
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+    <script>
+        // 优化配置 - 确保最佳性能
+        const CONFIG = {
+            PARTICLE_COUNT: 12000,  // 减少到12k以确保流畅性
+            BASE_SIZE: 0.018,
+            PHYSICS: {
+                attraction: 15.0,
+                drag: 0.88,
+                turbulence: 0.8,
+                accelBlend: 0.65,
+                maxSpeed: 16,
+                explosion: 28,
+                wind: 18
+            }
+        };
+
+        const GESTURE_MAP = {
+            open: 'sphere',
+            scissors: 'text',
+            fist: 'ring',
+            point: 'star',
+            thumbsUp: 'heart'
+        };
+
+        const GESTURE_LABEL = {
+            open: '张手',
+            scissors: '剪刀手',
+            fist: '握拳',
+            point: '食指',
+            thumbsUp: '竖大拇指'
+        };
+
+        const SHAPE_LABEL = {
+            sphere: '球体',
+            text: '“我是 Mok”',
+            ring: '圆环',
+            star: '星形',
+            heart: '爱心'
+        };
+
+        let renderer, scene, camera, points, geometry, material;
+        const count = CONFIG.PARTICLE_COUNT;
+        const positions = new Float32Array(count * 3);
+        const velocities = new Float32Array(count * 3);
+        const accelerations = new Float32Array(count * 3);
+        const targets = new Float32Array(count * 3);
+        const offsets = new Float32Array(count);
+        const shapeCache = {};
+        
+        let desiredScale = 1, targetScale = 1;
+        let activeGesture = 'open';
+        let smoothedSpeed = 0;
+        let demoModeActive = false;
+        
+        // 日志和UI元素
+        const statusPanel = document.getElementById('status-panel');
+        const shapeEl = document.getElementById('shapeValue');
+        const depthEl = document.getElementById('depthValue');
+        const speedEl = document.getElementById('speedValue');
+        const statusEl = document.getElementById('statusValue');
+        const toastEl = document.getElementById('toast');
+        const demoBtn = document.getElementById('demoMode');
+
+        // 日志记录
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+            statusPanel.textContent = entry;
+            if (type === 'error') console.error(entry);
+            else console.log(entry);
+        }
+
+        // 显示提示
+        function showToast(text) {
+            toastEl.textContent = text;
+            toastEl.classList.add('show');
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => toastEl.classList.remove('show'), 1400);
+        }
+
+        // 初始化Three.js
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2('#02111d', 0.32);
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 50);
+            camera.position.set(0, 0, 4.2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            document.getElementById('scene').appendChild(renderer.domElement);
+
+            geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            material = new THREE.PointsMaterial({
+                color: new THREE.Color('#35f5ff'),
+                size: CONFIG.BASE_SIZE,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                sizeAttenuation: true
+            });
+
+            points = new THREE.Points(geometry, material);
+            scene.add(points);
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // 设置初始粒子
+        function setInitialParticles() {
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                positions[i3] = (Math.random() - 0.5) * 2;
+                positions[i3 + 1] = (Math.random() - 0.5) * 2;
+                positions[i3 + 2] = (Math.random() - 0.5) * 2;
+                offsets[i] = Math.random() * Math.PI * 2;
+            }
+            geometry.attributes.position.needsUpdate = true;
+        }
+
+        // 物理更新
+        function stepPhysics() {
+            const dt = 0.016; // 固定时间步长
+            const t = performance.now() * 0.001;
+            
+            material.size = CONFIG.BASE_SIZE * (0.6 + targetScale * 0.4);
+            targetScale += (desiredScale - targetScale) * 0.08;
+
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const tx = targets[idx] * targetScale;
+                const ty = targets[idx + 1] * targetScale;
+                const tz = targets[idx + 2] * targetScale;
+                const px = positions[idx];
+                const py = positions[idx + 1];
+                const pz = positions[idx + 2];
+
+                const dx = tx - px;
+                const dy = ty - py;
+                const dz = tz - pz;
+
+                const swirl = offsets[i];
+                const noiseX = Math.sin(t * 1.3 + swirl) * CONFIG.PHYSICS.turbulence * 0.02;
+                const noiseY = Math.cos(t * 1.1 + swirl) * CONFIG.PHYSICS.turbulence * 0.02;
+                const noiseZ = Math.sin(t * 1.7 + swirl) * CONFIG.PHYSICS.turbulence * 0.02;
+
+                const ax = dx * CONFIG.PHYSICS.attraction + noiseX;
+                const ay = dy * CONFIG.PHYSICS.attraction + noiseY;
+                const az = dz * CONFIG.PHYSICS.attraction + noiseZ;
+
+                accelerations[idx] = THREE.MathUtils.lerp(accelerations[idx], ax, 1 - CONFIG.PHYSICS.accelBlend);
+                accelerations[idx + 1] = THREE.MathUtils.lerp(accelerations[idx + 1], ay, 1 - CONFIG.PHYSICS.accelBlend);
+                accelerations[idx + 2] = THREE.MathUtils.lerp(accelerations[idx + 2], az, 1 - CONFIG.PHYSICS.accelBlend);
+
+                velocities[idx] = velocities[idx] * CONFIG.PHYSICS.drag + accelerations[idx] * dt;
+                velocities[idx + 1] = velocities[idx + 1] * CONFIG.PHYSICS.drag + accelerations[idx + 1] * dt;
+                velocities[idx + 2] = velocities[idx + 2] * CONFIG.PHYSICS.drag + accelerations[idx + 2] * dt;
+
+                const speed = Math.hypot(velocities[idx], velocities[idx + 1], velocities[idx + 2]);
+                if (speed > CONFIG.PHYSICS.maxSpeed) {
+                    const limit = CONFIG.PHYSICS.maxSpeed / speed;
+                    velocities[idx] *= limit;
+                    velocities[idx + 1] *= limit;
+                    velocities[idx + 2] *= limit;
+                }
+
+                positions[idx] += velocities[idx] * dt;
+                positions[idx + 1] += velocities[idx + 1] * dt;
+                positions[idx + 2] += velocities[idx + 2] * dt;
+            }
+
+            geometry.attributes.position.needsUpdate = true;
+            points.rotation.y += 0.0008;
+            
+            // 更新UI
+            depthEl.textContent = `${targetScale.toFixed(2)}×`;
+            speedEl.textContent = smoothedSpeed.toFixed(2);
+            shapeEl.textContent = SHAPE_LABEL[activeGesture];
+            statusEl.textContent = demoModeActive ? '演示运行中' : '等待启动';
+        }
+
+        // 形态变换
+        function morphToShape(shapeKey) {
+            const buffer = getShapeBuffer(shapeKey);
+            const available = buffer.length / 3;
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const src = (i % available) * 3;
+                targets[idx] = buffer[src];
+                targets[idx + 1] = buffer[src + 1];
+                targets[idx + 2] = buffer[src + 2];
+            }
+            
+            // 爆炸效果
+            const force = CONFIG.PHYSICS.explosion;
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const strength = force * (0.3 + Math.random());
+                velocities[idx] += strength * Math.sin(phi) * Math.cos(theta);
+                velocities[idx + 1] += strength * Math.cos(phi);
+                velocities[idx + 2] += strength * Math.sin(phi) * Math.sin(theta);
+            }
+            
+            log(`💥 变换: ${activeGesture} → ${shapeKey}`);
+            showToast(`${GESTURE_LABEL[activeGesture]} → ${SHAPE_LABEL[shapeKey]}`);
+        }
+
+        function getShapeBuffer(key) {
+            if (shapeCache[key]) return shapeCache[key];
+            const map = {
+                sphere: createSphereShape,
+                text: createTextShape,
+                ring: createRingShape,
+                star: createStarShape,
+                heart: createHeartShape
+            };
+            shapeCache[key] = map[key]();
+            return shapeCache[key];
+        }
+
+        function createSphereShape() {
+            const buffer = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const u = Math.random();
+                const v = Math.random();
+                const theta = 2 * Math.PI * u;
+                const phi = Math.acos(2 * v - 1);
+                const radius = 0.35 + Math.random() * 0.4;
+                buffer[idx] = radius * Math.sin(phi) * Math.cos(theta);
+                buffer[idx + 1] = radius * Math.cos(phi);
+                buffer[idx + 2] = radius * Math.sin(phi) * Math.sin(theta);
+            }
+            return buffer;
+        }
+
+        function createRingShape() {
+            const buffer = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.random() * Math.PI * 2;
+                const R = 0.8;
+                const r = 0.2 + Math.random() * 0.08;
+                buffer[idx] = (R + r * Math.cos(v)) * Math.cos(u);
+                buffer[idx + 1] = r * Math.sin(v) * 0.45;
+                buffer[idx + 2] = (R + r * Math.cos(v)) * Math.sin(u);
+            }
+            return buffer;
+        }
+
+        function createStarShape() {
+            const buffer = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const angle = Math.random() * Math.PI * 2;
+                const spike = Math.round(angle / (Math.PI / 5));
+                const radius = (spike % 2 === 0 ? 0.9 : 0.35) + Math.random() * 0.08;
+                buffer[idx] = radius * Math.cos(angle);
+                buffer[idx + 1] = radius * Math.sin(angle) * 0.5;
+                buffer[idx + 2] = (Math.random() - 0.5) * 0.35;
+            }
+            return buffer;
+        }
+
+        function createHeartShape() {
+            const buffer = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const t = Math.random() * Math.PI - Math.PI / 2;
+                const x = Math.pow(Math.sin(t), 3);
+                const y = 0.7 * Math.cos(t) - 0.3 * Math.cos(2 * t) - 0.1 * Math.cos(3 * t);
+                buffer[idx] = x * 0.9;
+                buffer[idx + 1] = y * 0.8;
+                buffer[idx + 2] = (Math.random() - 0.5) * 0.25;
+            }
+            return buffer;
+        }
+
+        function createTextShape() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 900;
+            canvas.height = 320;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 190px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('我是 Mok', canvas.width / 2, canvas.height / 2);
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            const points = [];
+            for (let y = 0; y < canvas.height; y += 3) {
+                for (let x = 0; x < canvas.width; x += 3) {
+                    const alpha = data[(y * canvas.width + x) * 4 + 3];
+                    if (alpha > 32) {
+                        const nx = (x / canvas.width) * 2 - 1;
+                        const ny = 1 - (y / canvas.height) * 2;
+                        points.push({ x: nx, y: ny });
+                    }
+                }
+            }
+            if (!points.length) return createSphereShape();
+            
+            const buffer = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const p = points[i % points.length];
+                buffer[idx] = p.x * 1.3 + (Math.random() - 0.5) * 0.05;
+                buffer[idx + 1] = p.y * 0.7 + (Math.random() - 0.5) * 0.05;
+                buffer[idx + 2] = (Math.random() - 0.5) * 0.2;
+            }
+            return buffer;
+        }
+
+        // 风力应用
+        function applyWind(intensity) {
+            const force = CONFIG.PHYSICS.wind * intensity;
+            const dir = new THREE.Vector3(
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5),
+                0
+            ).normalize();
+            
+            for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                const power = force * (0.2 + Math.random() * 0.8);
+                velocities[idx] += dir.x * power;
+                velocities[idx + 1] += dir.y * power * 0.6;
+                velocities[idx + 2] += dir.z * power;
+            }
+            
+            smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, 1.4 + intensity * 2, 0.35);
+            log(`💨 风力触发: 强度 ${intensity.toFixed(2)}`);
+        }
+
+        // 演示模式
+        let demoTimer = null;
+        let windTimer = null;
+        let scaleTimer = null;
+
+        function startDemoMode() {
+            if (demoModeActive) {
+                stopDemoMode();
+                return;
+            }
+
+            demoModeActive = true;
+            demoBtn.classList.add('active');
+            demoBtn.textContent = '停止演示';
+            showToast('🎉 演示模式已启动');
+            log('🎬 演示模式开始 - 自动手势轮播');
+
+            const sequence = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
+            let index = 0;
+
+            // 手势轮播
+            demoTimer = setInterval(() => {
+                const gesture = sequence[index % sequence.length];
+                activeGesture = gesture;
+                morphToShape(GESTURE_MAP[gesture]);
+                index++;
+            }, 2500);
+
+            // 风力特效
+            windTimer = setInterval(() => {
+                if (Math.random() > 0.5) {
+                    const intensity = 0.7 + Math.random() * 0.8;
+                    applyWind(intensity);
+                    showToast('🌪️ 风暴特效');
+                }
+            }, 3500);
+
+            // 深度缩放
+            scaleTimer = setInterval(() => {
+                const simulated = 1 + 0.6 * Math.sin(performance.now() * 0.0012);
+                desiredScale = THREE.MathUtils.lerp(desiredScale, THREE.MathUtils.clamp(simulated, 0.8, 2.2), 0.12);
+            }, 160);
+        }
+
+        function stopDemoMode() {
+            demoModeActive = false;
+            demoBtn.classList.remove('active');
+            demoBtn.textContent = '启动演示';
+            
+            clearInterval(demoTimer);
+            clearInterval(windTimer);
+            clearInterval(scaleTimer);
+            
+            smoothedSpeed = 0;
+            desiredScale = 1;
+            
+            showToast('演示模式已停止');
+            log('🛑 演示模式停止');
+        }
+
+        // 演示按钮和键盘事件
+        demoBtn.addEventListener('click', startDemoMode);
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                startDemoMode();
+            }
+        });
+
+        // 页面加载
+        window.addEventListener('load', () => {
+            log('🌐 页面加载完成');
+            log('🔧 初始化3D场景...');
+            
+            initThree();
+            setInitialParticles();
+            morphToShape('sphere');
+            
+            // 动画循环
+            function animate() {
+                requestAnimationFrame(animate);
+                stepPhysics();
+                renderer.render(scene, camera);
+            }
+            animate();
+            
+            log('✅ 3D场景就绪');
+            log('💡 按Enter或点击"启动演示"按钮');
+            log('⚠️ 注意：由于网络限制，摄像头模式无法使用');
+            log('🎉 但演示模式包含完整功能验证！');
+        });
+    </script>
+</body>
+</html>

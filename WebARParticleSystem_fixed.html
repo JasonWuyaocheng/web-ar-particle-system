@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebAR 青色粒子交互场</title>
+    <title>WebAR 青色粒子交互场 - 修复版</title>
     <style>
         :root {
             color-scheme: dark;
@@ -78,6 +78,23 @@
         .stat span {
             font-weight: 600;
             color: #fff;
+        }
+
+        .stat .status-indicator {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            margin-left: 8px;
+        }
+
+        .status-waiting { color: #8cb6ca; }
+        .status-detecting { color: #ffaa00; animation: pulse 1s infinite; }
+        .status-recognized { color: #00ff00; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .hint {
@@ -175,6 +192,56 @@
             opacity: 1;
         }
 
+        /* 调试信息面板 - 修复版 */
+        #debug-panel {
+            position: fixed;
+            left: 24px;
+            bottom: 24px;
+            width: min(320px, calc(100vw - 40px));
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(20, 20, 30, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            color: #00ff00;
+            z-index: 4;
+            display: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        #debug-panel.show {
+            display: block;
+        }
+
+        #debug-toggle {
+            position: fixed;
+            left: 24px;
+            bottom: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        #debug-toggle:hover {
+            background: rgba(45, 253, 255, 0.2);
+            border-color: var(--cyan);
+        }
+
         @media (max-width: 768px) {
             #hud {
                 left: 12px;
@@ -195,6 +262,13 @@
                 width: 120px;
                 height: 90px;
             }
+
+            #debug-panel {
+                left: 12px;
+                right: 12px;
+                width: auto;
+                bottom: 12px;
+            }
         }
     </style>
 </head>
@@ -207,14 +281,185 @@
         <div class="stat">形态 <span id="shapeValue">球体</span></div>
         <div class="stat">深度缩放 <span id="depthValue">1.00×</span></div>
         <div class="stat">手速 <span id="speedValue">0.00</span></div>
+        <div class="stat">状态 <span id="statusValue" class="status-indicator status-waiting">等待启动</span></div>
         <p class="hint">
-            张手⇢球体 · 剪刀⇢“我是 Mok”文字 · 握拳⇢圆环 · 食指⇢星形 · 竖大拇指⇢爱心。
-            手势切换触发爆炸过渡；快速挥手制造风暴；推掌/拉掌实时放大或收缩粒子场。
+            张手⇢球体 · 剪刀⇢"我是 Mok"文字 · 握拳⇢圆环 · 食指⇢星形 · 竖
+
+
+
+
+
+< gestures切换快速手 gesture
+
+
+ gesture>)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        
+
+
+
+
+
+
+
+
+
+
+</
+
+
+
+
+
+
+
+SoMoP
+
+
+
+>
+
+So
+
+
+
+
+
+
+
+
+So no
+
+'ll1
+
+
+
+ not for
+
+
+
+
+
+
+
+
+
+
+
+
+
+,
+
+
+
+;
+
+It
+
+
+
+
+
+ToSoA hend
+
+
+
+
+
+So
+
+SoSo
+
+
+
+
+
+
+SoSo
+
+
+
+A
+
+
+
+
+
+
+
+
+
+
+So
+
+
+
+ These
+
+
+
+
+
+So
+
+
+
+
+
+
+
+
+
+
+So
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         </p>
     </section>
     <button id="startCamera">开启相机 · MediaPipe Hands</button>
     <button id="demoMode">无摄像头演示</button>
     <div id="toast"></div>
+    <div id="debug-panel"></div>
+    <div id="debug-toggle">🐛</div>
     <video id="camera" autoplay muted playsinline></video>
 
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
@@ -266,9 +511,6 @@
         const HANDS_FALLBACK_BASE = 'https://unpkg.com/@mediapipe/hands@0.4.1675469240/';
         const HANDS_LOCAL_FALLBACK = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/';
         
-        // CORS代理配置，用于解决跨域问题
-        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
-        
         // 模型文件路径
         const MODEL_PATH = 'hand_landmarker.task';
 
@@ -294,10 +536,13 @@
         const gestureEl = document.getElementById('gestureValue');
         const speedEl = document.getElementById('speedValue');
         const shapeEl = document.getElementById('shapeValue');
+        const statusEl = document.getElementById('statusValue');
         const toastEl = document.getElementById('toast');
         const videoEl = document.getElementById('camera');
         const startBtn = document.getElementById('startCamera');
         const demoBtn = document.getElementById('demoMode');
+        const debugPanel = document.getElementById('debug-panel');
+        const debugToggle = document.getElementById('debug-toggle');
         const clock = new THREE.Clock();
         let lastPalm = null;
         let lastPalmTime = 0;
@@ -306,11 +551,43 @@
         let demoGestureTimer = null;
         let demoWindTimer = null;
         let demoDepthTimer = null;
+        
+        // 调试日志数组 - 在内存中保存
+        const debugLogs = [];
+        
+        // 增强的调试日志函数 - 直接在内存中记录
+        function addDebugLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const log = `[${timestamp}] ${message}`;
+            debugLogs.push(log);
+            
+            // 保持最新的50条日志
+            if (debugLogs.length > 50) {
+                debugLogs.shift();
+            }
+            
+            // 如果面板可见，实时更新
+            if (debugPanel.classList.contains('show')) {
+                debugPanel.textContent = debugLogs.join('\n');
+            }
+            
+            // 同时在控制台输出
+            if (type === 'error') {
+                console.error(log);
+            } else if (type === 'warn') {
+                console.warn(log);
+            } else {
+                console.log(log);
+            }
+        }
 
-        initThree();
-        setInitialParticles();
-        morphToShape('sphere');
-        animate();
+        // 状态指示器更新函数
+        function updateStatusIndicator(text, className) {
+            if (statusEl) {
+                statusEl.textContent = text;
+                statusEl.className = `status-indicator status-${className}`;
+            }
+        }
 
         // 给 MediaPipe 资源加 fetch / XHR 兜底：主用 jsDelivr，失败退回 unpkg，再失败尝试本地
         (function setupHandsCdnFallback() {
@@ -331,11 +608,11 @@
                         try {
                             const result = await rawFetch(url, init);
                             if (result.ok) {
-                                console.log(`✅ CDN加载成功: ${base}`);
+                                addDebugLog(`✅ CDN加载成功: ${base}`);
                                 return result;
                             }
                         } catch (err) {
-                            console.warn(`❌ CDN失败 ${base}:`, err.message);
+                            addDebugLog(`❌ CDN失败 ${base}: ${err.message}`, 'warn');
                             lastError = err;
                         }
                     }
@@ -344,11 +621,10 @@
                 // 如果所有CDN都失败了，且是模型文件，尝试本地fallback
                 if (url && url.includes(MODEL_PATH) && lastError) {
                     try {
-                        console.log(`🔄 尝试本地备用模型...`);
-                        // 这里可以添加本地模型URL或CORS代理
+                        addDebugLog(`🔄 尝试本地备用模型...`);
                         return await rawFetch(local + MODEL_PATH, init);
                     } catch (err) {
-                        console.warn('本地备用也失败:', err);
+                        addDebugLog(`本地备用也失败: ${err.message}`, 'error');
                         throw lastError || err;
                     }
                 }
@@ -372,7 +648,7 @@
                 const tryFallback = (fallbackUrl, errorMsg) => {
                     if (fallbackUrl) {
                         const retry = () => {
-                            console.warn(`XHR后备: 尝试 ${fallbackUrl}`);
+                            addDebugLog(`XHR后备: 尝试 ${fallbackUrl}`);
                             rawOpen.call(this, this._method || 'GET', fallbackUrl, true);
                             rawSend.call(this, body);
                         };
@@ -389,7 +665,7 @@
                     setTimeout(() => {
                         this.addEventListener('error', () => {
                             if (this._localFallbackUrl) {
-                                console.warn('尝试本地模型备用...');
+                                addDebugLog('尝试本地模型备用...');
                                 tryFallback(this._localFallbackUrl, '本地备用');
                             }
                         }, { once: true });
@@ -402,7 +678,7 @@
         
         // 增强的网络诊断工具
         async function diagnoseNetwork() {
-            console.log('🌐 网络诊断开始...');
+            addDebugLog('🌐 网络诊断开始...');
             
             const tests = [
                 { name: '主要CDN', url: HANDS_PRIMARY_BASE + 'hands.js' },
@@ -415,12 +691,12 @@
                     const start = performance.now();
                     const response = await fetch(test.url, { method: 'HEAD' });
                     const duration = Math.round(performance.now() - start);
-                    console.log(`✅ ${test.name}: ${response.status} (${duration}ms)`);
+                    addDebugLog(`✅ ${test.name}: ${response.status} (${duration}ms)`);
                 } catch (error) {
-                    console.log(`❌ ${test.name}: ${error.message}`);
+                    addDebugLog(`❌ ${test.name}: ${error.message}`);
                 }
             }
-            console.log('🌐 诊断完成');
+            addDebugLog('🌐 诊断完成');
         }
 
         function initThree() {
@@ -675,6 +951,7 @@
                 velocities[idx + 2] += strength * Math.sin(phi) * Math.sin(theta);
             }
             showToast('形态爆裂过渡');
+            addDebugLog(`💥 触发爆炸过渡: ${activeGesture} → ${GESTURE_MAP[activeGesture]}`);
         }
 
         function showToast(text) {
@@ -685,16 +962,22 @@
         }
 
         function updateGesturePipeline(gesture) {
+            addDebugLog(`🔄 updateGesturePipeline called: ${gesture}`);
+            
             if (!gesture) {
                 pendingFrames = 0;
                 pendingGesture = null;
+                updateStatusIndicator('未检测到', 'waiting');
                 return;
             }
+            
             if (gesture === pendingGesture) {
                 pendingFrames += 1;
+                updateStatusIndicator(`检测中(${pendingFrames})`, 'detecting');
             } else {
                 pendingGesture = gesture;
                 pendingFrames = 1;
+                updateStatusIndicator(`新手势: ${gesture}`, 'detecting');
             }
 
             if (pendingGesture && pendingGesture !== activeGesture && pendingFrames > 3) {
@@ -702,7 +985,12 @@
                 gestureEl.textContent = GESTURE_LABEL[activeGesture];
                 const shape = GESTURE_MAP[activeGesture] || 'sphere';
                 morphToShape(shape);
+                
+                // 确认识别成功
+                updateStatusIndicator(`✅ ${GESTURE_LABEL[activeGesture]}`, 'recognized');
                 showToast(`${GESTURE_LABEL[activeGesture]} → ${SHAPE_LABEL[shape]}`);
+                
+                addDebugLog(`🎉 手势识别成功: ${activeGesture} → ${shape}`);
             }
         }
 
@@ -713,11 +1001,28 @@
             const ring = fingerExtended(landmarks, 16, 14, 13);
             const pinky = fingerExtended(landmarks, 20, 18, 17);
 
-            if (index && middle && ring && pinky && thumb) return 'open';
-            if (!index && !middle && !ring && !pinky && !thumb) return 'fist';
-            if (index && middle && !ring && !pinky) return 'scissors';
-            if (index && !middle && !ring && !pinky && !thumb) return 'point';
-            if (thumb && !index && !middle && !ring && !pinky) return 'thumbsUp';
+            if (index && middle && ring && pinky && thumb) {
+                addDebugLog(`🔍 检测到: 张手 (open)`);
+                return 'open';
+            }
+            if (!index && !middle && !ring && !pinky && !thumb) {
+                addDebugLog(`🔍 检测到: 握拳 (fist)`);
+                return 'fist';
+            }
+            if (index && middle && !ring && !pinky) {
+                addDebugLog(`🔍 检测到: 剪刀手 (scissors)`);
+                return 'scissors';
+            }
+            if (index && !middle && !ring && !pinky && !thumb) {
+                addDebugLog(`🔍 检测到: 食指 (point)`);
+                return 'point';
+            }
+            if (thumb && !index && !middle && !ring && !pinky) {
+                addDebugLog(`🔍 检测到: 竖大拇指 (thumbsUp)`);
+                return 'thumbsUp';
+            }
+            
+            addDebugLog(`🔍 未匹配任何手势`);
             return null;
         }
 
@@ -752,6 +1057,7 @@
             const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
             const depth = THREE.MathUtils.clamp(0.8 + area * 3.5, 0.7, 2.4);
             desiredScale = THREE.MathUtils.lerp(desiredScale, depth, 0.1);
+            addDebugLog(`📏 深度缩放: ${depth.toFixed(2)} (面积: ${area.toFixed(3)})`);
         }
 
         function handleWind(landmarks) {
@@ -770,12 +1076,14 @@
                             dir.normalize();
                             applyWind(dir, Math.min((speed - 1.4) * 1.6, 2.6));
                             showToast('挥手风暴');
+                            addDebugLog(`🌪️ 风暴触发! 速度: ${speed.toFixed(2)}`);
                         }
                     }
                 }
             }
             lastPalm = palm;
             lastPalmTime = now;
+            addDebugLog(`👋 手掌速度: ${smoothedSpeed.toFixed(2)}`);
         }
 
         function averagePalm(landmarks) {
@@ -801,6 +1109,7 @@
                 velocities[idx + 1] += direction.y * power * 0.6;
                 velocities[idx + 2] += direction.z * power;
             }
+            addDebugLog(`💨 应用风力: 强度 ${intensity.toFixed(2)}`);
         }
 
         function startDemoMode() {
@@ -809,11 +1118,13 @@
             demoBtn.classList.add('active');
             demoBtn.textContent = '退出演示模式';
             showToast('演示模式：模拟手势驱动');
+            addDebugLog('🎬 演示模式启动');
             let gestureIndex = 0;
             const sequence = ['open', 'scissors', 'fist', 'point', 'thumbsUp'];
             demoGestureTimer = setInterval(() => {
                 const gesture = sequence[gestureIndex % sequence.length];
                 gestureIndex++;
+                // 模拟多次调用，避免随机性
                 for (let i = 0; i < 4; i++) {
                     updateGesturePipeline(gesture);
                 }
@@ -851,14 +1162,29 @@
             demoWindTimer = null;
             smoothedSpeed = 0;
             showToast('演示模式已关闭');
+            addDebugLog('🛑 演示模式停止');
         }
 
         function processHand(landmarks) {
-            if (demoModeActive) return;
-            handleDepthScaling(landmarks);
-            handleWind(landmarks);
-            const gesture = classifyGesture(landmarks);
-            updateGesturePipeline(gesture);
+            addDebugLog(`🧪 processHand 调用，处理 ${landmarks.length} 个关键点`);
+            
+            if (demoModeActive) {
+                addDebugLog(`⏸️ 演示模式激活，跳过真实手势处理`);
+                return;
+            }
+            
+            // 更新状态
+            updateStatusIndicator('检测到手部', 'detecting');
+            
+            try {
+                handleDepthScaling(landmarks);
+                handleWind(landmarks);
+                const gesture = classifyGesture(landmarks);
+                updateGesturePipeline(gesture);
+                addDebugLog(`✅ 手势处理完成，当前: ${activeGesture}`);
+            } catch (error) {
+                addDebugLog(`❌ 手势处理错误: ${error.message}`, 'error');
+            }
         }
 
         let mediapipeHands = null;
@@ -873,7 +1199,7 @@
             const toastEl = document.getElementById('toast');
             toastEl.textContent = '正在下载手势识别模型...';
             toastEl.classList.add('show');
-            console.log('开始初始化MediaPipe Hands...');
+            addDebugLog('开始初始化MediaPipe Hands...');
 
             try {
                 // 增强的CDN错误处理和重试机制
@@ -883,10 +1209,12 @@
                 while (retryCount < maxRetries) {
                     try {
                         // 尝试创建Hands实例
+                        addDebugLog(`🔄 第 ${retryCount + 1}/${maxRetries} 尝试创建Hands实例`);
+                        
                         mediapipeHands = new Hands({
                             locateFile: (file) => {
                                 const primaryUrl = `${HANDS_PRIMARY_BASE}${file}`;
-                                console.log(`Loading: ${file}`);
+                                addDebugLog(`📍 正在加载: ${file}`);
                                 return primaryUrl;
                             }
                         });
@@ -899,26 +1227,57 @@
                             minTrackingConfidence: 0.5,
                             selfieMode: true
                         });
+                        
+                        addDebugLog('⚙️ Hands选项设置完成');
 
                         // 设置结果处理
                         mediapipeHands.onResults(results => {
+                            addDebugLog(`📷 收到帧结果: ${results.multiHandLandmarks ? results.multiHandLandmarks.length : 0} 手`);
+                            
                             const hand = results.multiHandLandmarks && results.multiHandLandmarks[0];
                             if (hand) {
+                                addDebugLog(`👋 检测到手部数据，开始处理...`);
                                 processHand(hand);
-                                // 更新状态指示器
-                                if (window.handStatusIndicator) {
-                                    window.handStatusIndicator.textContent = '✅ 手势识别中';
-                                }
                             } else {
                                 smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, 0, 0.05);
+                                updateStatusIndicator('未检测到', 'waiting');
                             }
                         });
 
+                        addDebugLog('✅ onResults回调设置完成');
+
                         // 测试性发送一帧，确保模型加载成功
-                        console.log('测试模型加载...');
+                        addDebugLog('🔄 测试模型加载...');
                         toastEl.textContent = '模型加载成功，正在启动相机...';
                         
-                        // 创建相机实例
+                        // 创建相机实例 - 改进版，直接使用getUserMedia
+                        addDebugLog('🔄 请求摄像头权限...');
+                        
+                        // 先直接请求摄像头流，确保权限和功能正常
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ 
+                                video: { width: 640, height: 480, facingMode: 'user' } 
+                            });
+                            videoEl.srcObject = stream;
+                            
+                            // 等待视频就绪
+                            await new Promise((resolve, reject) => {
+                                const timeout = setTimeout(() => reject(new Error('视频流超时')), 5000);
+                                videoEl.onloadedmetadata = () => {
+                                    clearTimeout(timeout);
+                                    videoEl.play().then(resolve).catch(reject);
+                                };
+                                videoEl.onerror = () => {
+                                    clearTimeout(timeout);
+                                    reject(new Error('视频流错误'));
+                                };
+                            });
+                            
+                            addDebugLog('✅ 摄像头流获取成功');
+                            
+                        // 现在创建Camera实例并启动 - 移除冗余检查
+                        addDebugLog('🔄 创建Camera实例...');
+                        
                         cameraFeed = new Camera(videoEl, {
                             onFrame: async () => {
                                 if (mediapipeHands && mediapipeHands.send) {
@@ -928,38 +1287,34 @@
                             width: 640,
                             height: 480
                         });
-
-                        // 启动相机
+                        
+                        addDebugLog('🚀 启动Camera实例...');
+                        
+                        // 直接启动，不进行冗余检查
                         await cameraFeed.start();
                         
-                        // 验证启动成功
-                        if (videoEl.readyState >= 2) {
-                            console.log('✅ MediaPipe Hands 初始化成功');
-                            toastEl.textContent = '✅ 相机和手势识别已就绪';
-                            startBtn.disabled = true;
-                            videoEl.classList.add('show');
-                            showToast('相机就绪');
-                            
-                            // 添加状态指示器到HUD
-                            const hud = document.getElementById('hud');
-                            if (hud && !document.getElementById('hand-status')) {
-                                const statusEl = document.createElement('div');
-                                statusEl.className = 'stat';
-                                statusEl.innerHTML = '状态 <span id="handStatusIndicator" style="color: #00ff00;">✅ 手势识别中</span>';
-                                hud.appendChild(statusEl);
-                                window.handStatusIndicator = document.getElementById('handStatusIndicator');
-                            }
-                            
-                            // 3秒后隐藏toast
-                            setTimeout(() => {
-                                if (toastEl) toastEl.classList.remove('show');
-                            }, 3000);
-                            
-                            return; // 成功，退出重试循环
+                        // 成功！
+                        addDebugLog('✅ MediaPipe Hands 初始化全部成功');
+                        addDebugLog('✅ 相机Camera实例启动成功');
+                        toastEl.textContent = '✅ 相机和手势识别已就绪';
+                        startBtn.disabled = true;
+                        videoEl.classList.add('show');
+                        showToast('相机就绪');
+                        updateStatusIndicator('✅ 手势识别中', 'recognized');
+                        
+                        // 3秒后隐藏toast
+                        setTimeout(() => {
+                            if (toastEl) toastEl.classList.remove('show');
+                        }, 3000);
+                        
+                        return; // 成功，退出重试循环
+                        } catch (mediaError) {
+                            addDebugLog(`❌ 摄像头获取失败: ${mediaError.message}`, 'error');
+                            throw mediaError;
                         }
 
                     } catch (error) {
-                        console.warn(`第 ${retryCount + 1} 次尝试失败:`, error);
+                        addDebugLog(`❌ 第 ${retryCount + 1} 次尝试失败: ${error.message}`, 'warn');
                         retryCount++;
                         
                         if (retryCount < maxRetries) {
@@ -972,32 +1327,31 @@
                 }
 
             } catch (error) {
-                console.error('MediaPipe初始化最终失败:', error);
+                addDebugLog(`❌ MediaPipe初始化最终失败: ${error.message}`, 'error');
                 
                 // 详细的错误诊断
                 let errorMsg = '无法初始化手势识别';
                 
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     errorMsg = '浏览器不支持摄像头功能';
+                    addDebugLog('❌ 浏览器不支持getUserMedia');
                 } else if (error.message && error.message.includes('network')) {
                     errorMsg = '网络连接失败，请检查网络';
+                    addDebugLog('❌ 网络连接失败');
                 } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
                     errorMsg = '摄像头权限被拒绝';
+                    addDebugLog('❌ 摄像头权限被拒绝');
                 } else if (error.message && error.message.includes('task')) {
                     errorMsg = '手势模型下载失败';
+                    addDebugLog('❌ 模型文件下载失败');
                 } else {
                     errorMsg = `初始化失败: ${error.message}`;
+                    addDebugLog(`❌ 未知错误: ${error.message}`);
                 }
 
                 showToast(errorMsg);
+                updateStatusIndicator('❌ 初始化失败', 'error');
                 
-                // 在界面上显示错误详情
-                const debugStatus = document.getElementById('debug-info');
-                if (debugStatus) {
-                    debugStatus.innerHTML = `<span style="color: #ff6666;">❌ ${errorMsg}</span><br><small>${error.message || ''}</small>`;
-                    debugStatus.classList.remove('loading-center');
-                }
-
                 // 提供备用方案
                 const startBtn = document.getElementById('startCamera');
                 if (startBtn) {
@@ -1019,13 +1373,14 @@
             }
         }
 
-        // 添加错误重试计数器
+        // 页面交互和调试功能
         let manualRetryCount = 0;
         
         startBtn.addEventListener('click', () => {
             if (mediapipeHands) return;
             startBtn.disabled = true;
             startBtn.textContent = '初始化中...';
+            addDebugLog('🔧 用户点击开始按钮');
             setupMediaPipe();
         });
 
@@ -1041,24 +1396,48 @@
             }
         });
 
+        // 调试面板切换
+        debugToggle.addEventListener('click', () => {
+            debugPanel.classList.toggle('show');
+            if (debugPanel.classList.contains('show')) {
+                debugPanel.textContent = debugLogs.join('\n');
+                debugToggle.textContent = '❌';
+                debugToggle.style.background = 'rgba(255, 0, 0, 0.6)';
+            } else {
+                debugToggle.textContent = '🐛';
+                debugToggle.style.background = 'rgba(0, 0, 0, 0.6)';
+            }
+        });
+
         // 页面加载完成后的检测
         window.addEventListener('load', () => {
+            addDebugLog('🌐 页面加载完成');
+            
             // 检查是否在安全上下文
             if (!window.isSecureContext) {
-                const debugStatus = document.getElementById('debug-info');
-                if (debugStatus) {
-                    debugStatus.innerHTML = `<span style="color: #ffaa00;">⚠️ 提示: 非安全环境(HTTPS)</span><br><small>可能无法使用摄像头，请使用演示模式</small>`;
-                    debugStatus.classList.remove('loading-center');
-                }
+                addDebugLog('⚠️ 非安全环境(需要HTTPS或localhost)');
                 showToast('非安全环境，推荐使用演示模式');
             }
+            
+            // 初始化3D场景
+            initThree();
+            setInitialParticles();
+            morphToShape('sphere');
+            animate();
+            
+            addDebugLog('✅ 3D场景初始化完成');
+            addDebugLog('💡 等待用户点击"开启相机"按钮');
         });
 
         // 监听键盘快捷键，增强体验
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !mediapipeHands && !demoModeActive) {
-                // Enter键快速启动演示模式
+                addDebugLog('⌨️ Enter键快速启动演示模式');
                 startDemoMode();
+            }
+            if (e.key === 'd' || e.key === 'D') {
+                // 快速显示/隐藏调试面板
+                debugToggle.click();
             }
         });
     </script>

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子系统手势识别测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #000;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .status { 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            background: #1a1a1a;
+            border: 1px solid #333;
+        }
+        .success { background: #003300; border-color: #00ff00; }
+        .error { background: #330000; border-color: #ff0000; }
+        .warning { background: #333300; border-color: #ffff00; }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #1976D2; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        video {
+            width: 100%;
+            max-width: 320px;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .hud {
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .gesture-display {
+            font-size: 24px;
+            text-align: center;
+            padding: 20px;
+            background: #111;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎯 粒子系统手势识别测试</h1>
+        <p>此测试页面用于验证粒子系统的手势识别功能修复情况</p>
+        
+        <div id="status-area"></div>
+        
+        <div class="grid">
+            <button id="test-cdn" onclick="testCDN()">测试CDN连接</button>
+            <button id="test-camera" onclick="testCamera()">测试摄像头</button>
+            <button id="test-gesture" onclick="testGesture()">启动手势识别</button>
+            <button id="demo-mode" onclick="startDemo()">演示模式</button>
+        </div>
+        
+        <div id="camera-preview" style="display:none;">
+            <h3>摄像头预览</h3>
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+        </div>
+        
+        <div id="gesture-hud" class="hud" style="display:none;">
+            <h3>手势状态</h3>
+            <div class="gesture-display" id="gesture-display">等待手势...</div>
+            <div id="gesture-details"></div>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; background: #222; border-radius: 8px;">
+            <h3>测试说明</h3>
+            <ul>
+                <li>✅ 先测试CDN连接，确保能下载MediaPipe资源</li>
+                <li>✅ 再测试摄像头权限</li>
+                <li>✅ 最后启动手势识别</li>
+                <li>🔧 如果失败，可使用演示模式查看功能</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const HANDS_PRIMARY_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/';
+        const HANDS_FALLBACK_BASE = 'https://unpkg.com/@mediapipe/hands@0.4.1675469240/';
+        
+        let hands = null;
+        let cameraUtils = null;
+        let demoTimer = null;
+        let cameraStream = null;
+
+        // 手动实现Camera类（因为测试页面没有加载camera_utils）
+        class ManualCamera {
+            constructor(videoElement, config) {
+                this.video = videoElement;
+                this.onFrame = config.onFrame;
+                this.running = false;
+            }
+
+            async start() {
+                if (!cameraStream) {
+                    throw new Error('请先获取摄像头流');
+                }
+                this.video.srcObject = cameraStream;
+                await new Promise(resolve => {
+                    this.video.onloadedmetadata = resolve;
+                });
+                
+                this.running = true;
+                this.processFrame();
+            }
+
+            async processFrame() {
+                if (!this.running) return;
+                
+                try {
+                    if (this.video.readyState >= 2) {
+                        await this.onFrame();
+                    }
+                } catch (error) {
+                    console.warn('帧处理失败:', error);
+                }
+                
+                if (this.running) {
+                    requestAnimationFrame(() => this.processFrame());
+                }
+            }
+
+            stop() {
+                this.running = false;
+            }
+        }
+        
+        // 显示状态
+        function showStatus(message, type = 'normal') {
+            const area = document.getElementById('status-area');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            area.insertBefore(div, area.firstChild);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        // 测试CDN
+        async function testCDN() {
+            const btn = document.getElementById('test-cdn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+            
+            try {
+                showStatus('开始测试CDN连接...', 'warning');
+                
+                // 测试主要CDN
+                const testUrl = HANDS_PRIMARY_BASE + 'hands.js';
+                showStatus(`尝试连接: ${testUrl}`);
+                
+                const response = await fetch(testUrl, { method: 'HEAD' });
+                if (response.ok) {
+                    showStatus('✅ 主要CDN连接成功 (jsdelivr)', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                // 测试备用CDN
+                const fallbackUrl = HANDS_FALLBACK_BASE + 'hands.js';
+                const response2 = await fetch(fallbackUrl, { method: 'HEAD' });
+                if (response2.ok) {
+                    showStatus('✅ 备用CDN连接成功 (unpkg)', 'success');
+                }
+                
+                showStatus('🎉 CDN测试全部通过', 'success');
+                
+            } catch (error) {
+                showStatus(`❌ CDN测试失败: ${error.message}`, 'error');
+                showStatus('提示: 请检查网络连接或使用VPN', 'warning');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试CDN连接';
+            }
+        }
+        
+        // 测试摄像头
+        async function testCamera() {
+            const btn = document.getElementById('test-camera');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+            
+            try {
+                showStatus('请求摄像头权限...', 'warning');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                
+                showStatus('✅ 摄像头权限获取成功', 'success');
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                document.getElementById('camera-preview').style.display = 'block';
+                
+                // 等待视频加载
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = resolve;
+                });
+                
+                showStatus(`✅ 视频流就绪: ${video.videoWidth}x${video.videoHeight}`, 'success');
+                
+                // 停止测试流
+                stream.getTracks().forEach(track => track.stop());
+                
+            } catch (error) {
+                showStatus(`❌ 摄像头测试失败: ${error.message}`, 'error');
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    showStatus('提示: 请在浏览器设置中允许摄像头访问', 'warning');
+                } else if (!window.isSecureContext) {
+                    showStatus('警告: 非HTTPS环境，摄像头可能无法使用', 'warning');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试摄像头';
+            }
+        }
+        
+        // 测试手势识别
+        async function testGesture() {
+            const btn = document.getElementById('test-gesture');
+            btn.disabled = true;
+            btn.textContent = '初始化中...';
+            
+            try {
+                showStatus('开始初始化MediaPipe Hands...', 'warning');
+                
+                // 检查HTTPS环境
+                if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+                    showStatus('⚠️ 非安全环境，MediaPipe可能无法工作', 'warning');
+                }
+                
+                // 尝试加载Hands库
+                await loadMediaPipeHands();
+                showStatus('✅ Hands库加载成功', 'success');
+                
+                // 创建Hands实例
+                hands = new Hands({
+                    locateFile: (file) => `${HANDS_PRIMARY_BASE}${file}`
+                });
+                
+                hands.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.5
+                });
+                
+                hands.onResults(onGestureResults);
+                showStatus('✅ Hands实例创建成功', 'success');
+                
+                // 启动摄像头
+                const video = document.getElementById('video');
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                video.srcObject = cameraStream;
+                
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                document.getElementById('camera-preview').style.display = 'block';
+                
+                // 创建Camera实例（使用手动实现的版本）
+                cameraUtils = new ManualCamera(video, {
+                    onFrame: async () => {
+                        if (hands) {
+                            await hands.send({ image: video });
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
+                
+                await cameraUtils.start();
+                showStatus('✅ 手势识别启动成功', 'success');
+                
+                // 显示手势界面
+                document.getElementById('gesture-hud').style.display = 'block';
+                showStatus('🎉 请对着摄像头做出手势', 'success');
+                
+                // 5秒后显示使用说明
+                setTimeout(() => {
+                    showStatus('💡 使用说明: 张手/握拳/剪刀手/食指/大拇指', 'warning');
+                }, 3000);
+                
+            } catch (error) {
+                showStatus(`❌ 手势识别失败: ${error.message}`, 'error');
+                showStatus('建议: 使用演示模式查看功能', 'warning');
+                
+                // 提供演示模式按钮
+                document.getElementById('demo-mode').style.display = 'inline-block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '启动手势识别';
+            }
+        }
+        
+        // 动态加载MediaPipe Hands
+        function loadMediaPipeHands() {
+            return new Promise((resolve, reject) => {
+                if (window.Hands) {
+                    resolve();
+                    return;
+                }
+                
+                // 使用CDN加载
+                const script1 = document.createElement('script');
+                script1.src = HANDS_PRIMARY_BASE + 'hands.js';
+                script1.onload = () => {
+                    if (window.Hands) resolve();
+                    else reject(new Error('Hands未定义'));
+                };
+                script1.onerror = () => {
+                    // 尝试备用CDN
+                    const script2 = document.createElement('script');
+                    script2.src = HANDS_FALLBACK_BASE + 'hands.js';
+                    script2.onload = () => {
+                        if (window.Hands) resolve();
+                        else reject(new Error('Hands未定义'));
+                    };
+                    script2.onerror = () => reject(new Error('所有CDN加载失败'));
+                    document.head.appendChild(script2);
+                };
+                document.head.appendChild(script1);
+            });
+        }
+        
+        // 处理手势结果
+        function onGestureResults(results) {
+            const display = document.getElementById('gesture-display');
+            const details = document.getElementById('gesture-details');
+            
+            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                display.textContent = '未检测到手势';
+                display.style.color = '#666';
+                return;
+            }
+            
+            const landmarks = results.multiHandLandmarks[0];
+            const gesture = classifyGesture(landmarks);
+            
+            if (gesture) {
+                const gestureNames = {
+                    open: '🖐️ 张手 (Open)',
+                    fist: '✊ 握拳 (Fist)',
+                    scissors: '✌️ 剪刀手 (Scissors)',
+                    point: '☝️ 食指 (Point)',
+                    thumbsUp: '👍 大拇指 (Thumbs Up)'
+                };
+                
+                display.textContent = gestureNames[gesture] || gesture;
+                display.style.color = '#00ff00';
+                
+                details.innerHTML = `
+                    <div>置信度: 高</div>
+                    <div>触发时间: ${new Date().toLocaleTimeString()}</div>
+                `;
+                
+                // 直接显示识别结果（测试页面不需要实际切换形态）
+                showStatus(`手势识别: ${gestureNames[gesture]}`, 'success');
+                
+                // 额外显示在状态区域
+                const area = document.getElementById('status-area');
+                const div = document.createElement('div');
+                div.className = 'status success';
+                div.innerHTML = `<strong>🎉 手势识别成功:</strong> ${gestureNames[gesture]} (${gesture})`;
+                area.insertBefore(div, area.firstChild);
+            }
+        }
+        
+        // 手势分类
+        function classifyGesture(landmarks) {
+            const thumb = thumbExtended(landmarks);
+            const index = fingerExtended(landmarks, 8, 6, 5);
+            const middle = fingerExtended(landmarks, 12, 10, 9);
+            const ring = fingerExtended(landmarks, 16, 14, 13);
+            const pinky = fingerExtended(landmarks, 20, 18, 17);
+
+            if (index && middle && ring && pinky && thumb) return 'open';
+            if (!index && !middle && !ring && !pinky && !thumb) return 'fist';
+            if (index && middle && !ring && !pinky) return 'scissors';
+            if (index && !middle && !ring && !pinky && !thumb) return 'point';
+            if (thumb && !index && !middle && !ring && !pinky) return 'thumbsUp';
+            return null;
+        }
+        
+        function fingerExtended(landmarks, tip, pip, mcp) {
+            const tipPos = landmarks[tip];
+            const pipPos = landmarks[pip];
+            const mcpPos = landmarks[mcp];
+            const distTipMcp = Math.hypot(tipPos.x - mcpPos.x, tipPos.y - mcpPos.y);
+            const distPipMcp = Math.hypot(pipPos.x - mcpPos.x, pipPos.y - mcpPos.y);
+            return distTipMcp > distPipMcp * 1.05 && tipPos.y < mcpPos.y;
+        }
+        
+        function thumbExtended(landmarks) {
+            const tip = landmarks[4];
+            const mcp = landmarks[2];
+            const wrist = landmarks[0];
+            const distTipWrist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+            const distMcpWrist = Math.hypot(mcp.x - wrist.x, mcp.y - wrist.y);
+            return distTipWrist > distMcpWrist * 1.1;
+        }
+        
+        // 演示模式
+        function startDemo() {
+            const btn = document.getElementById('demo-mode');
+            
+            if (demoTimer) {
+                clearInterval(demoTimer);
+                demoTimer = null;
+                btn.textContent = '演示模式';
+                showStatus('演示模式已停止', 'warning');
+                return;
+            }
+            
+            showStatus('启动演示模式...', 'warning');
+            document.getElementById('gesture-hud').style.display = 'block';
+            
+            const sequence = [
+                { name: '🖐️ 张手 (Open)', duration: 2000 },
+                { name: '✌️ 剪刀手 (Scissors)', duration: 2000 },
+                { name: '✊ 握拳 (Fist)', duration: 2000 },
+                { name: '☝️ 食指 (Point)', duration: 2000 },
+                { name: '👍 大拇指 (Thumbs Up)', duration: 2000 }
+            ];
+            
+            let index = 0;
+            const display = document.getElementById('gesture-display');
+            
+            demoTimer = setInterval(() => {
+                const current = sequence[index % sequence.length];
+                display.textContent = current.name;
+                display.style.color = '#ffdd00';
+                
+                showStatus(`模拟手势: ${current.name}`, 'warning');
+                index++;
+            }, 3000);
+            
+            btn.textContent = '停止演示';
+            btn.style.background = '#ff5722';
+        }
+        
+        // 页面加载检查
+        window.addEventListener('load', () => {
+            showStatus('测试页面加载完成', 'success');
+            showStatus(`当前环境: ${window.isSecureContext ? 'HTTPS' : 'HTTP'}`, 'warning');
+            showStatus(`当前域名: ${window.location.hostname}`, 'normal');
+            
+            if (!navigator.mediaDevices) {
+                showStatus('❌ 浏览器不支持摄像头API', 'error');
+            }
+            
+            if (!window.fetch) {
+                showStatus('❌ 浏览器不支持fetch API', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
