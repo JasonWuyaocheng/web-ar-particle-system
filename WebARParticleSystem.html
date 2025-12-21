@@ -261,6 +261,10 @@
             heart: '爱心'
         };
 
+        // MediaPipe 资源主/备 CDN
+        const HANDS_PRIMARY_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/';
+        const HANDS_FALLBACK_BASE = 'https://unpkg.com/@mediapipe/hands@0.4.1675469240/';
+
         let renderer;
         let scene;
         let camera;
@@ -779,8 +783,6 @@
 
         let mediapipeHands = null;
         let cameraFeed = null;
-        const HANDS_PRIMARY_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/';
-        const HANDS_FALLBACK_BASE = 'https://unpkg.com/@mediapipe/hands@0.4.1675469240/';
 
         function setupMediaPipe() {
             if (demoModeActive) {
